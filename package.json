@@ -1,0 +1,12 @@
+{
+  "name": "remote-media-control",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A phone-friendly LAN remote for Windows media playback and audio",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  }
+}

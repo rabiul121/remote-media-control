@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0b0d13" />
+    <title>Remote Media</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <a class="brand" href="/"
+          ><span class="brand-mark"
+            ><svg viewBox="0 0 24 24">
+              <path
+                d="M9 18V5l12-2v13M9 18c0 1.7-1.8 3-4 3s-4-1.3-4-3 1.8-3 4-3 4 1.3 4 3Zm12-2c0 1.7-1.8 3-4 3s-4-1.3-4-3 1.8-3 4-3 4 1.3 4 3Z"
+              /></svg></span
+          ><span>REMOTE<span class="brand-light">/MEDIA</span></span></a
+        >
+        <div class="topbar-actions">
+          <button
+            id="theme-toggle"
+            class="icon-button"
+            title="Switch color theme"
+            aria-label="Switch color theme"
+          >
+            ☼
+          </button>
+          <div class="connection">
+            <i></i><span id="connection-label">Not paired</span
+            ><button
+              id="unpair"
+              class="icon-button hidden"
+              title="Disconnect this device"
+              aria-label="Disconnect"
+            >
+              ↗
+            </button>
+          </div>
+        </div>
+      </header>
+      <section id="pair-view" class="pair-view">
+        <div class="eyebrow">
+          WINDOWS MEDIA REMOTE <span>•</span> LOCAL NETWORK
+        </div>
+        <h1>Your listening,<br /><em>within reach.</em></h1>
+        <p class="intro">
+          Control playback and volume on your Windows PC from this device. Enter
+          the pairing code shown in the host window.
+        </p>
+        <form id="pair-form">
+          <label for="pin">6-DIGIT PAIRING CODE</label>
+          <div class="pair-entry">
+            <input
+              id="pin"
+              name="pin"
+              inputmode="numeric"
+              pattern="[0-9]{6}"
+              maxlength="6"
+              autocomplete="one-time-code"
+              placeholder="000 000"
+              required
+            /><button class="primary" type="submit">
+              Connect <span>↗</span>
+            </button>
+          </div>
+          <div id="pair-error" class="error"></div>
+        </form>
+        <div class="pair-note">
+          <span class="lock">⌑</span
+          ><span>Only devices with your one-time host code can connect.</span>
+        </div>
+      </section>
+      <section id="remote-view" class="remote-view hidden">
+        <div class="welcome">
+          <div>
+            <div class="eyebrow">NOW IN CONTROL</div>
+            <h1>Make it <em>play.</em></h1>
+          </div>
+          <div class="live-pill"><i></i> CONNECTED</div>
+        </div>
+        <nav class="page-tabs" id="page-tabs" aria-label="Remote sections">
+          <button class="page-tab active" data-page="playback">Playback</button
+          ><button class="page-tab" data-page="files">Files</button
+          ><button class="page-tab" data-page="browser">Browser</button
+          ><button class="page-tab" data-page="window">Window</button
+          ><button class="page-tab" data-page="mouse">Mouse</button
+          ><button class="page-tab" data-page="keyboard">Keyboard</button>
+        </nav>
+        <div class="page-panel active" data-page-panel="playback">
+          <section class="card player-card">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">PLAYER</div>
+                <h2>Choose your source</h2>
+              </div>
+              <button
+                id="refresh"
+                class="icon-button"
+                title="Refresh status"
+                aria-label="Refresh status"
+              >
+                ↻
+              </button>
+            </div>
+            <div class="player-options" id="players">
+              <button class="player-option" data-player="vlc">
+                <span class="player-icon vlc">V</span><span>VLC</span
+                ><span class="player-state">CHECKING</span>
+              </button>
+              <button class="player-option" data-player="musicbee">
+                <span class="player-icon bee">♪</span><span>MusicBee</span
+                ><span class="player-state">CHECKING</span>
+              </button>
+              <button class="player-option" data-player="potplayer">
+                <span class="player-icon pot">▶</span><span>PotPlayer</span
+                ><span class="player-state">CHECKING</span>
+              </button>
+              <button class="player-option" data-player="mpc-hc64">
+                <span class="player-icon mpc">M</span><span>MPC-HC</span
+                ><span class="player-state">CHECKING</span>
+              </button>
+            </div>
+            <div class="player-actions">
+              <button id="player-open" class="action-button">
+                ↗ <span class="player-action-label">Open player</span></button
+              ><button id="player-close" class="action-button">
+                × <span class="player-action-label">Close player</span></button
+              ><button
+                id="player-fullscreen"
+                class="action-button"
+                data-action="toggleFullscreen"
+              >
+                ⛶ <span>Full screen</span>
+              </button>
+            </div>
+            <div id="selected-hint" class="microcopy">
+              Select a player to send seek commands and adjust its app volume.
+            </div>
+          </section>
+          <section class="card transport-card">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">PLAYBACK</div>
+                <h2>At your fingertips</h2>
+              </div>
+              <span class="key-hint">MEDIA KEYS</span>
+            </div>
+            <div class="transport">
+              <button
+                class="transport-button seek"
+                data-action="seekLargeBackward"
+                aria-label="Seek backward 30 seconds"
+              >
+                <svg viewBox="0 0 24 24">
+                  <path d="M11 5 3 12l8 7V5Zm10 0-8 7 8 7V5Z" /></svg
+                ><small>−30 SEC</small>
+              </button>
+              <button
+                class="transport-button skip"
+                data-action="previous"
+                aria-label="Previous track"
+              >
+                <svg viewBox="0 0 24 24">
+                  <path d="M6 5h2v14H6zm13 0v14L9 12l10-7Z" />
+                </svg>
+              </button>
+              <button
+                class="transport-button play"
+                data-action="playPause"
+                aria-label="Play or pause"
+              >
+                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7L8 5Z" /></svg>
+              </button>
+              <button
+                class="transport-button skip"
+                data-action="next"
+                aria-label="Next track"
+              >
+                <svg viewBox="0 0 24 24">
+                  <path d="M16 5h2v14h-2zM5 5v14l10-7L5 5Z" />
+                </svg>
+              </button>
+              <button
+                class="transport-button seek"
+                data-action="seekLargeForward"
+                aria-label="Seek forward 30 seconds"
+              >
+                <svg viewBox="0 0 24 24">
+                  <path d="m13 5 8 7-8 7V5ZM3 5l8 7-8 7V5Z" /></svg
+                ><small>+30 SEC</small>
+              </button>
+            </div>
+            <div class="seek-row">
+              <button class="seek-chip" data-action="seekSmallBackward">
+                −5 sec</button
+              ><span>JUMP</span
+              ><button class="seek-chip" data-action="seekSmallForward">
+                +5 sec
+              </button>
+            </div>
+            <div class="transport-caption">
+              Previous <span>PLAY / PAUSE</span> Next
+            </div>
+            <div id="transport-hint" class="microcopy centered">
+              Playback keys control the current Windows media session.
+            </div>
+          </section>
+          <section class="volume-grid">
+            <div class="card volume-card">
+              <div class="section-head">
+                <div>
+                  <div class="eyebrow">WINDOWS OUTPUT</div>
+                  <h2>System volume</h2>
+                </div>
+                <button
+                  id="system-mute"
+                  class="mute-button"
+                  title="Mute system volume"
+                  aria-label="Mute system volume"
+                >
+                  ♫
+                </button>
+              </div>
+              <div class="range-row">
+                <button
+                  class="step-button"
+                  data-volume="system"
+                  data-step="-5"
+                  aria-label="Decrease system volume by 5"
+                >
+                  −5</button
+                ><input
+                  id="system-volume"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="50"
+                /><button
+                  class="step-button"
+                  data-volume="system"
+                  data-step="5"
+                  aria-label="Increase system volume by 5"
+                >
+                  +5</button
+                ><output id="system-value">50</output
+                ><span class="percent">%</span>
+              </div>
+              <div class="range-labels">
+                <span>QUIET</span><span>LOUD</span>
+              </div>
+            </div>
+            <div class="card volume-card">
+              <div class="section-head">
+                <div>
+                  <div class="eyebrow">APP MIXER</div>
+                  <h2 id="player-volume-title">Player volume</h2>
+                </div>
+                <button
+                  id="player-mute"
+                  class="mute-button"
+                  title="Mute player volume"
+                  aria-label="Mute player volume"
+                >
+                  ♫
+                </button>
+              </div>
+              <div class="range-row">
+                <button
+                  class="step-button"
+                  data-volume="player"
+                  data-step="-5"
+                  aria-label="Decrease player volume by 5"
+                >
+                  −5</button
+                ><input
+                  id="player-volume"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="50"
+                  disabled
+                /><button
+                  class="step-button"
+                  data-volume="player"
+                  data-step="5"
+                  aria-label="Increase player volume by 5"
+                >
+                  +5</button
+                ><output id="player-value">—</output
+                ><span class="percent">%</span>
+              </div>
+              <div class="range-labels">
+                <span>QUIET</span><span>LOUD</span>
+              </div>
+              <div id="player-volume-hint" class="microcopy">
+                Choose a running player to control its mixer level.
+              </div>
+            </div>
+          </section>
+        </div>
+        <div class="page-panel" data-page-panel="files">
+          <section class="card file-card">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">FILE EXPLORER</div>
+                <h2>Browse & play</h2>
+              </div>
+              <button
+                id="files-refresh"
+                class="icon-button"
+                title="Refresh folder"
+                aria-label="Refresh folder"
+              >
+                ↻
+              </button>
+            </div>
+            <div class="file-toolbar">
+              <button id="file-up" class="action-button" disabled>
+                ↑ <span>Up</span>
+              </button>
+              <div id="file-location">Choose a drive to browse</div>
+              <button id="file-open-explorer" class="action-button" disabled>
+                ▣ <span>Explorer</span>
+              </button>
+            </div>
+            <div id="file-list" class="file-list">
+              <div class="file-empty">Loading drives…</div>
+            </div>
+            <div class="explorer-remote" id="explorer-remote">
+              <div class="explorer-help">
+                Open a folder with Explorer above, then use these keys in that
+                window.
+              </div>
+              <div class="explorer-arrows" aria-label="Explorer arrow keys">
+                <button
+                  class="action-button"
+                  data-action="explorerUp"
+                  aria-label="Up arrow"
+                >
+                  ↑
+                </button>
+                <button
+                  class="action-button"
+                  data-action="explorerLeft"
+                  aria-label="Left arrow"
+                >
+                  ←
+                </button>
+                <button
+                  class="action-button"
+                  data-action="explorerDown"
+                  aria-label="Down arrow"
+                >
+                  ↓
+                </button>
+                <button
+                  class="action-button"
+                  data-action="explorerRight"
+                  aria-label="Right arrow"
+                >
+                  →
+                </button>
+              </div>
+              <div class="explorer-actions" aria-label="Explorer keys">
+                <button class="action-button" data-action="explorerTab">
+                  Tab</button
+                ><button class="action-button" data-action="explorerShiftTab">
+                  Shift+Tab
+                </button>
+                <button class="action-button" data-action="explorerEnter">
+                  Enter</button
+                ><button class="action-button" data-action="explorerClose">
+                  × Close Explorer
+                </button>
+              </div>
+            </div>
+            <div id="file-hint" class="microcopy">
+              Audio and video open in the selected player. Other files open in
+              their Windows default app.
+            </div>
+          </section>
+        </div>
+        <div class="page-panel" data-page-panel="browser">
+          <section class="card browser-card">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">WEB BROWSER</div>
+                <h2>Open and control</h2>
+              </div>
+            </div>
+            <label class="browser-label" for="browser-select">BROWSER</label>
+            <div class="browser-open-row">
+              <select id="browser-select">
+                <option value="default">Default browser</option>
+                <option value="edge">Microsoft Edge</option>
+                <option value="chrome">Google Chrome</option>
+                <option value="firefox">Mozilla Firefox</option>
+                <option value="brave">Brave</option></select
+              ><button id="browser-open" class="action-button">
+                ↗ <span>Open browser</span>
+              </button>
+            </div>
+            <label class="browser-label" for="browser-address">ADDRESS</label>
+            <div class="browser-open-row">
+              <input
+                id="browser-address"
+                type="text"
+                inputmode="url"
+                autocomplete="url"
+                placeholder="https://example.com"
+              /><button id="browser-go" class="action-button">Go ↗</button>
+            </div>
+            <label class="browser-label" for="search-query">WEB SEARCH</label>
+            <div class="browser-search-row">
+              <select id="search-provider" aria-label="Search provider">
+                <option value="google">Google</option>
+                <option value="bing">Bing</option>
+                <option value="duckduckgo">DuckDuckGo</option>
+                <option value="yahoo">Yahoo</option></select
+              ><input
+                id="search-query"
+                type="search"
+                placeholder="Search the web"
+              /><button id="browser-search" class="action-button">
+                Search
+              </button>
+            </div>
+            <div class="browser-shortcuts" aria-label="One tap websites">
+              <button
+                class="action-button"
+                data-browser-url="https://www.youtube.com"
+              >
+                YouTube</button
+              ><button
+                class="action-button"
+                data-browser-url="https://www.facebook.com"
+              >
+                Facebook</button
+              ><button
+                class="action-button"
+                data-browser-url="https://www.google.com"
+              >
+                Google
+              </button>
+            </div>
+            <div class="browser-controls" aria-label="Browser controls">
+              <button class="action-button" data-action="browserBack">
+                ← <span>Back</span></button
+              ><button class="action-button" data-action="browserForward">
+                → <span>Forward</span></button
+              ><button class="action-button" data-action="browserReload">
+                ↻ <span>Reload</span></button
+              ><button class="action-button" data-action="browserHome">
+                ⌂ <span>Home</span></button
+              ><button class="action-button" data-action="browserMinimize">
+                _ <span>Minimize</span></button
+              ><button class="action-button" data-action="browserMaximize">
+                □ <span>Maximize</span></button
+              ><button class="action-button" data-action="browserFullscreen">
+                ⛶ <span>Fullscreen</span></button
+              ><button class="action-button" data-action="browserRestore">
+                ▣ <span>Restore</span></button
+              ><button class="action-button" data-action="browserClose">
+                × <span>Close</span>
+              </button>
+            </div>
+            <div class="browser-keys" aria-label="Browser keyboard controls">
+              <button class="action-button" data-action="browserArrowUp">
+                ↑</button
+              ><button class="action-button" data-action="browserArrowLeft">
+                ←</button
+              ><button class="action-button" data-action="browserArrowDown">
+                ↓</button
+              ><button class="action-button" data-action="browserArrowRight">
+                →
+              </button>
+              <button class="action-button" data-action="browserScrollUp">
+                Page ↑</button
+              ><button class="action-button" data-action="browserScrollDown">
+                Page ↓</button
+              ><button class="action-button" data-action="browserTab">
+                Tab</button
+              ><button class="action-button" data-action="browserShiftTab">
+                Shift+Tab</button
+              ><button class="action-button" data-action="browserEnter">
+                Enter</button
+              ><button class="action-button" data-action="browserEscape">
+                Esc
+              </button>
+            </div>
+            <div id="browser-hint" class="microcopy">
+              Choose a browser and open it or tap a site shortcut. Browser
+              controls target the last browser opened here.
+            </div>
+          </section>
+        </div>
+        <div class="page-panel" data-page-panel="window">
+          <section class="card window-control-card">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">OPENED FILE</div>
+                <h2>App window controls</h2>
+              </div>
+            </div>
+            <div id="window-control-hint" class="microcopy">
+              Open an image, document, or PDF from Files to control its default
+              app here.
+            </div>
+            <div
+              class="default-file-actions"
+              id="default-file-actions"
+              aria-label="Default app controls"
+            >
+              <button class="action-button" data-action="defaultScrollUp">
+                ↑ <span>Scroll up</span></button
+              ><button class="action-button" data-action="defaultScrollDown">
+                ↓ <span>Scroll down</span>
+              </button>
+              <button class="action-button" data-action="defaultPrevious">
+                ← <span>Previous</span></button
+              ><button class="action-button" data-action="defaultNext">
+                → <span>Next</span>
+              </button>
+              <button class="action-button" data-action="defaultArrowLeft">
+                ← <span>Left</span></button
+              ><button class="action-button" data-action="defaultArrowRight">
+                → <span>Right</span>
+              </button>
+              <button class="action-button" data-action="defaultArrowUp">
+                ↑ <span>Up</span></button
+              ><button class="action-button" data-action="defaultArrowDown">
+                ↓ <span>Down</span>
+              </button>
+              <button class="action-button" data-action="defaultMinimize">
+                _ <span>Minimize</span></button
+              ><button class="action-button" data-action="defaultMaximize">
+                □ <span>Maximize</span>
+              </button>
+              <button class="action-button" data-action="defaultFullscreen">
+                ⛶ <span>Full screen</span></button
+              ><button class="action-button" data-action="defaultRestore">
+                ▣ <span>Restore</span>
+              </button>
+              <button class="action-button" data-action="defaultClose">
+                × <span>Close app</span>
+              </button>
+            </div>
+          </section>
+        </div>
+        <div class="page-panel" data-page-panel="mouse">
+          <section class="card mouse-card">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">POINTER REMOTE</div>
+                <h2>Mouse control</h2>
+              </div>
+            </div>
+            <p class="microcopy mouse-hint">
+              Drag inside the pad to move the Windows cursor. Use the buttons
+              for clicks, selection, and scrolling.
+            </p>
+            <div
+              id="mouse-pad"
+              class="mouse-pad"
+              role="application"
+              aria-label="Touchpad area for moving the Windows pointer"
+            >
+              <span class="mouse-pad-icon">⌖</span
+              ><span>Touch and drag to move</span>
+            </div>
+            <div class="mouse-buttons">
+              <button class="action-button" data-mouse-action="mouseLeftClick">
+                ◉ <span>Left click</span></button
+              ><button
+                class="action-button"
+                data-mouse-action="mouseRightClick"
+              >
+                ▣ <span>Right click</span></button
+              ><button
+                class="action-button"
+                data-mouse-action="mouseDoubleClick"
+              >
+                ◉◉ <span>Double click</span></button
+              ><button
+                class="action-button"
+                data-mouse-action="mouseMiddleClick"
+              >
+                ⊙ <span>Middle click</span>
+              </button>
+              <button
+                id="mouse-drag-toggle"
+                class="action-button"
+                data-mouse-action="mouseLeftDown"
+              >
+                ↗ <span>Start selection</span></button
+              ><button class="action-button" data-mouse-action="mouseScrollUp">
+                ↑ <span>Scroll up</span></button
+              ><button
+                class="action-button"
+                data-mouse-action="mouseScrollDown"
+              >
+                ↓ <span>Scroll down</span></button
+              ><button class="action-button" data-mouse-action="mouseLeftUp">
+                ✓ <span>Release</span>
+              </button>
+            </div>
+            <div id="mouse-hint" class="microcopy">
+              Start selection, then drag on the pad to select text or items.
+              Release when finished.
+            </div>
+          </section>
+        </div>
+        <div class="page-panel" data-page-panel="keyboard">
+          <section class="card keyboard-card">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">WINDOWS INPUT</div>
+                <h2>Full keyboard</h2>
+              </div>
+            </div>
+            <p class="microcopy">
+              Keys go to the active Windows window. Turn on modifiers, then tap
+              a key for shortcuts such as Ctrl+C or Alt+F4.
+            </p>
+            <div class="keyboard-modifiers" aria-label="Keyboard modifiers">
+              <button
+                class="action-button keyboard-modifier"
+                data-modifier="ctrl"
+              >
+                Ctrl
+              </button>
+              <button
+                class="action-button keyboard-modifier"
+                data-modifier="alt"
+              >
+                Alt
+              </button>
+              <button
+                class="action-button keyboard-modifier"
+                data-modifier="shift"
+              >
+                Shift
+              </button>
+              <button
+                class="action-button keyboard-modifier"
+                data-modifier="win"
+              >
+                Win
+              </button>
+            </div>
+            <div
+              id="keyboard-layout"
+              class="keyboard-layout"
+              aria-label="On-screen keyboard"
+            ></div>
+          </section>
+        </div>
+        <footer>
+          <span>Built for the same Wi-Fi network</span
+          ><span id="last-updated"></span>
+        </footer>
+      </section>
+      <div id="toast" role="status" class="toast"></div>
+    </main>
+    <script src="/app.js" defer></script>
+  </body>
+</html>
