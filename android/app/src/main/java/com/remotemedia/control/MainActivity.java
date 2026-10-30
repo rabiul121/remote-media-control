@@ -85,7 +85,7 @@ public class MainActivity extends ComponentActivity {
     private void showConnect() {
         ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true);
         root = column(); root.setBackgroundColor(BG); root.setPadding(dp(25), dp(32), dp(25), dp(24)); scroll.addView(root); setContentView(scroll);
-        TextView brand = text("◉   REMOTE / MEDIA", 13, LIME, true); brand.setLetterSpacing(.1f); root.addView(brand);
+        TextView brand = text("◉   REMOTE / DECK", 13, LIME, true); brand.setLetterSpacing(.1f); root.addView(brand);
         TextView title = text("Your listening,\nwithin reach.", 34, TEXT, true); title.setLineSpacing(dp(1), 1f);
         LinearLayout.LayoutParams tp = params(-1, -2); tp.topMargin = dp(45); root.addView(title, tp);
         TextView desc = text("Connect to your Windows PC on the same Wi-Fi. Scan the QR from the tray menu, or enter the PC's IP and port.", 15, MUTED, false);
@@ -124,10 +124,10 @@ public class MainActivity extends ComponentActivity {
         connect(host,port,null);
     }
     private boolean isIpv4Address(String host){String[] parts=host.split("\\.");if(parts.length!=4)return false;for(String x:parts){try{int n=Integer.parseInt(x);if(n<0||n>255||!String.valueOf(n).equals(x))return false;}catch(Exception e){return false;}}return true;}
-    private void scanQr(){try{ScanOptions options=new ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Scan the Remote Media QR on your Windows PC").setBeepEnabled(false).setOrientationLocked(false);qrScanner.launch(options);}catch(Exception e){setHomeStatus("Could not start the QR scanner. Check camera permission and try again.",Color.rgb(255,138,114));}}
+    private void scanQr(){try{ScanOptions options=new ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Scan the RemoteDeck QR on your Windows PC").setBeepEnabled(false).setOrientationLocked(false);qrScanner.launch(options);}catch(Exception e){setHomeStatus("Could not start the QR scanner. Check camera permission and try again.",Color.rgb(255,138,114));}}
     private void pairFromQr(String raw){
         final String host;final int port;final String code;
-        try{JSONObject p=new JSONObject(raw.trim());if(!"remote-media-control-pairing".equals(p.optString("type"))||p.optInt("version")!=1)throw new IllegalArgumentException("This is not a Remote Media pairing QR.");host=p.optString("host");if(!isIpv4Address(host))throw new IllegalArgumentException("The QR does not contain a valid PC IP address.");port=p.optInt("port");if(port<1||port>65535)throw new IllegalArgumentException("The QR contains an invalid port.");code=p.optString("pairing_code");if(!code.matches("[0-9]{6}"))throw new IllegalArgumentException("The QR is missing its six-digit pairing code.");}catch(Exception e){setHomeStatus(e.getMessage()==null?"Could not read the pairing QR.":e.getMessage(),Color.rgb(255,138,114));return;}
+        try{JSONObject p=new JSONObject(raw.trim());if(!"remote-media-control-pairing".equals(p.optString("type"))||p.optInt("version")!=1)throw new IllegalArgumentException("This is not a RemoteDeck pairing QR.");host=p.optString("host");if(!isIpv4Address(host))throw new IllegalArgumentException("The QR does not contain a valid PC IP address.");port=p.optInt("port");if(port<1||port>65535)throw new IllegalArgumentException("The QR contains an invalid port.");code=p.optString("pairing_code");if(!code.matches("[0-9]{6}"))throw new IllegalArgumentException("The QR is missing its six-digit pairing code.");}catch(Exception e){setHomeStatus(e.getMessage()==null?"Could not read the pairing QR.":e.getMessage(),Color.rgb(255,138,114));return;}
         setHomeStatus("Pairing with "+host+":"+port+"…",MUTED);
         new Thread(()->{
             HttpURLConnection c=null;String message=null;String token=null;
@@ -139,7 +139,7 @@ public class MainActivity extends ComponentActivity {
         connectedUrl="http://"+host+":"+port;android.content.SharedPreferences prefs=getPreferences(MODE_PRIVATE);android.content.SharedPreferences.Editor prefEdit=prefs.edit().putString("ip",host).putInt("port",port).putString("url",connectedUrl);if(token!=null)prefEdit.putString("pairToken",token);else if(!host.equals(prefs.getString("ip",""))||port!=prefs.getInt("port",8765))prefEdit.remove("pairToken");prefEdit.apply();
         root=column();root.setBackgroundColor(BG);setContentView(root);
         LinearLayout bar=new LinearLayout(this);bar.setGravity(Gravity.CENTER_VERTICAL);bar.setPadding(dp(17),0,dp(12),0);bar.setBackgroundColor(BG);
-        TextView name=text("REMOTE / MEDIA",12,LIME,true);name.setLetterSpacing(.08f);bar.addView(name,new LinearLayout.LayoutParams(0,dp(52),1));
+        TextView name=text("REMOTE / DECK",12,LIME,true);name.setLetterSpacing(.08f);bar.addView(name,new LinearLayout.LayoutParams(0,dp(52),1));
         TextView change=text("CHANGE PC",10,MUTED,true);change.setPadding(dp(12),dp(12),dp(5),dp(12));change.setOnClickListener(v->{if(web!=null){web.stopLoading();web.destroy();web=null;}showConnect();});bar.addView(change);root.addView(bar,params(-1,dp(52)));
         webFrame=new FrameLayout(this);root.addView(webFrame,new LinearLayout.LayoutParams(-1,0,1));
         web=new WebView(this);web.setBackgroundColor(BG);WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setDatabaseEnabled(true);settings.setLoadsImagesAutomatically(true);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);

@@ -1027,34 +1027,116 @@ footer {
   flex-wrap: wrap;
   margin: 12px 0;
 }
+.keyboard-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 10px 0;
+}
+.keyboard-tools .keyboard-modifiers {
+  margin: 0;
+}
+.numpad-toggle {
+  flex: none;
+  min-height: 40px;
+  justify-content: center;
+}
+.keyboard-stage {
+  position: relative;
+}
 .keyboard-layout {
   display: grid;
-  gap: 7px;
-  overflow-x: auto;
-  padding: 10px;
+  gap: 5px;
+  padding: 7px;
   border: 1px solid #252a37;
   border-radius: 12px;
   background: #10131b;
-  -webkit-overflow-scrolling: touch;
 }
 .keyboard-row {
   display: flex;
-  gap: 5px;
-  min-width: max-content;
+  width: 100%;
+  gap: 3px;
 }
 .keyboard-key {
   justify-content: center;
-  min-width: 40px;
-  min-height: 46px;
-  padding: 7px 8px;
-  font-size: 13px;
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  min-height: clamp(32px, 9vw, 44px);
+  padding: 2px 1px;
+  font-size: clamp(8px, 2.6vw, 12px);
+  line-height: 1;
+  white-space: nowrap;
 }
 .keyboard-key.key-wide {
-  min-width: 62px;
+  flex-grow: 1.7;
 }
 .keyboard-key.key-space {
-  flex: 1;
-  min-width: 190px;
+  flex-grow: 5;
+}
+.keyboard-extra-keys {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 5px;
+}
+.keyboard-extra-keys .keyboard-key {
+  width: auto;
+}
+.keyboard-arrows {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  margin-top: 8px;
+}
+.keyboard-arrows > div {
+  display: flex;
+  gap: 4px;
+}
+.keyboard-arrows .keyboard-key {
+  width: 48px;
+  flex: none;
+}
+.numpad-panel {
+  position: absolute;
+  z-index: 3;
+  inset: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #65749a;
+  border-radius: 12px;
+  background: #151a26f5;
+  box-shadow: 0 12px 32px #0008;
+}
+.numpad-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #e8ebf5;
+  font-size: 13px;
+}
+.numpad-layout {
+  display: grid;
+  gap: 5px;
+  align-content: start;
+  width: min(100%, 310px);
+  margin: 0 auto;
+}
+.numpad-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+.numpad-row .keyboard-key {
+  width: auto;
+  min-height: 43px;
+  font-size: 13px;
+}
+.numpad-row .keyboard-key.numpad-zero {
+  grid-column: span 2;
 }
 .keyboard-key.active,
 .keyboard-modifier.active {
@@ -1065,6 +1147,14 @@ footer {
 html[data-theme="light"] .keyboard-layout {
   border-color: #d5dbe6;
   background: #eef1f6;
+}
+html[data-theme="light"] .numpad-panel {
+  border-color: #aab6cd;
+  background: #f9fbfffa;
+  box-shadow: 0 12px 32px #25334c38;
+}
+html[data-theme="light"] .numpad-panel-head {
+  color: #1c263a;
 }
 html[data-theme="light"] .keyboard-key.active,
 html[data-theme="light"] .keyboard-modifier.active {

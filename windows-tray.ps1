@@ -1,4 +1,8 @@
 $ErrorActionPreference = 'Stop'
+try {
+    $script:trayMutex = [System.Threading.Mutex]::new($false, 'Local\RemoteDeckTray')
+    if (-not $script:trayMutex.WaitOne(0)) { exit }
+} catch [System.Threading.AbandonedMutexException] { }
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -13,7 +17,8 @@ function Start-Listener {
     if ($script:listener -and -not $script:listener.HasExited) { return }
     $script:pin = (Get-Random -Minimum 100000 -Maximum 1000000).ToString()
     $script:listener = Start-Process -FilePath $node -ArgumentList @('server.js',$script:pin) -WorkingDirectory $root -WindowStyle Hidden -PassThru -RedirectStandardOutput $log -RedirectStandardError (Join-Path $logDir 'listener-error.log')
-    $script:icon.Text = 'Remote Media: starting'
+    Set-Content -LiteralPath $pidFile -Value $script:listener.Id -NoNewline
+    $script:icon.Text = 'RemoteDeck: starting'
 }
 function Get-ListenerInfo {
     $adapters = @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' } | Sort-Object @{Expression={if($_.Name -match 'wi-?fi|wireless|wlan'){0}else{1}}})
@@ -24,11 +29,11 @@ function Get-ListenerInfo {
 $script:icon = New-Object System.Windows.Forms.NotifyIcon
 $logoPath = Join-Path $root 'assets\remote-media.ico'
 if (Test-Path -LiteralPath $logoPath) { $script:icon.Icon = New-Object System.Drawing.Icon($logoPath) } else { $script:icon.Icon = [System.Drawing.SystemIcons]::Application }
-$script:icon.Text = 'Remote Media Control'
+$script:icon.Text = 'RemoteDeck'
 $script:icon.Visible = $true
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
 $pair = $menu.Items.Add('Pair phone...')
-$pair.Add_Click({ [System.Windows.Forms.MessageBox]::Show((Get-ListenerInfo),'Remote Media Control',[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null })
+$pair.Add_Click({ [System.Windows.Forms.MessageBox]::Show((Get-ListenerInfo),'RemoteDeck',[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null })
 $qr = $menu.Items.Add('Show pairing QR...')
 $qr.Add_Click({ Start-Process 'http://127.0.0.1:8765/pair-qr' })
 $open = $menu.Items.Add('Open remote on this PC')

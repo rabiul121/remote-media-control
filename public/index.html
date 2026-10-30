@@ -7,7 +7,7 @@
       content="width=device-width,initial-scale=1,viewport-fit=cover"
     />
     <meta name="theme-color" content="#0b0d13" />
-    <title>Remote Media</title>
+    <title>RemoteDeck</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
@@ -19,7 +19,7 @@
               <path
                 d="M9 18V5l12-2v13M9 18c0 1.7-1.8 3-4 3s-4-1.3-4-3 1.8-3 4-3 4 1.3 4 3Zm12-2c0 1.7-1.8 3-4 3s-4-1.3-4-3 1.8-3 4-3 4 1.3 4 3Z"
               /></svg></span
-          ><span>REMOTE<span class="brand-light">/MEDIA</span></span></a
+          ><span>REMOTE<span class="brand-light">/DECK</span></span></a
         >
         <div class="topbar-actions">
           <button
@@ -573,6 +573,10 @@
               <span class="mouse-pad-icon">⌖</span
               ><span>Touch and drag to move</span>
             </div>
+            <p class="microcopy gesture-hint">
+              Two fingers: slide up or down to scroll. Pinch out to zoom in;
+              pinch in to zoom out.
+            </p>
             <div class="mouse-buttons">
               <button class="action-button" data-mouse-action="mouseLeftClick">
                 ◉ <span>Left click</span></button
@@ -627,37 +631,105 @@
               Keys go to the active Windows window. Turn on modifiers, then tap
               a key for shortcuts such as Ctrl+C or Alt+F4.
             </p>
-            <div class="keyboard-modifiers" aria-label="Keyboard modifiers">
+            <div class="keyboard-tools">
+              <div class="keyboard-modifiers" aria-label="Keyboard modifiers">
+                <button
+                  class="action-button keyboard-modifier"
+                  data-modifier="ctrl"
+                >
+                  Ctrl
+                </button>
+                <button
+                  class="action-button keyboard-modifier"
+                  data-modifier="alt"
+                >
+                  Alt
+                </button>
+                <button
+                  class="action-button keyboard-modifier"
+                  data-modifier="shift"
+                >
+                  Shift
+                </button>
+                <button
+                  class="action-button keyboard-modifier"
+                  data-modifier="win"
+                >
+                  Win
+                </button>
+              </div>
               <button
-                class="action-button keyboard-modifier"
-                data-modifier="ctrl"
+                id="numpad-toggle"
+                class="action-button numpad-toggle"
+                aria-expanded="false"
+                aria-controls="numpad-panel"
+                title="Show numeric keypad"
               >
-                Ctrl
-              </button>
-              <button
-                class="action-button keyboard-modifier"
-                data-modifier="alt"
-              >
-                Alt
-              </button>
-              <button
-                class="action-button keyboard-modifier"
-                data-modifier="shift"
-              >
-                Shift
-              </button>
-              <button
-                class="action-button keyboard-modifier"
-                data-modifier="win"
-              >
-                Win
+                ▦ <span>Numpad</span>
               </button>
             </div>
-            <div
-              id="keyboard-layout"
-              class="keyboard-layout"
-              aria-label="On-screen keyboard"
-            ></div>
+            <div class="keyboard-stage">
+              <div
+                id="keyboard-layout"
+                class="keyboard-layout"
+                aria-label="On-screen keyboard"
+              ></div>
+              <div
+                id="keyboard-extra-keys"
+                class="keyboard-extra-keys"
+                aria-label="Navigation and editing keys"
+              ></div>
+              <div
+                id="numpad-panel"
+                class="numpad-panel hidden"
+                aria-label="Numeric keypad"
+              >
+                <div class="numpad-panel-head">
+                  <strong>Numeric keypad</strong
+                  ><button
+                    id="numpad-hide"
+                    class="icon-button"
+                    aria-label="Hide numeric keypad"
+                    title="Hide numeric keypad"
+                  >
+                    ×
+                  </button>
+                </div>
+                <div id="numpad-layout" class="numpad-layout"></div>
+              </div>
+            </div>
+            <div class="keyboard-arrows" aria-label="Arrow keys">
+              <button
+                class="action-button keyboard-key"
+                data-key="UP"
+                aria-label="Up arrow"
+              >
+                ↑
+              </button>
+              <div>
+                <button
+                  class="action-button keyboard-key"
+                  data-key="LEFT"
+                  aria-label="Left arrow"
+                >
+                  ←
+                </button>
+                <button
+                  class="action-button keyboard-key"
+                  data-key="DOWN"
+                  aria-label="Down arrow"
+                >
+                  ↓
+                </button>
+                <button
+                  class="action-button keyboard-key"
+                  data-key="RIGHT"
+                  aria-label="Right arrow"
+                >
+                  →
+                </button>
+              </div>
+            </div>
           </section>
         </div>
         <footer>

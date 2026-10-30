@@ -2,6 +2,8 @@ param([Parameter(Mandatory=$true)][ValidateSet('Install','Start','DisableStartup
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path -LiteralPath $Root).Path.TrimEnd('\')
 $tray = Join-Path $Root 'windows-tray.ps1'
+$hiddenLauncher = Join-Path $Root 'start-hidden.vbs'
+$wscript = (Get-Command wscript.exe).Source
 $powershell = (Get-Command powershell.exe).Source
 $programs = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
 $startup = Join-Path $programs 'Startup'
@@ -25,8 +27,8 @@ function Stop-Remote {
     }
 }
 function Remove-Links([bool]$all) {
-    $paths = @((Join-Path $desktop 'Remote Media Control.lnk'),(Join-Path $programs 'Remote Media Control.lnk'),(Join-Path $startup 'Remote Media Control.lnk'))
-    if (!$all) { $paths = @((Join-Path $startup 'Remote Media Control.lnk')) }
+    $paths = @((Join-Path $desktop 'RemoteDeck.lnk'),(Join-Path $programs 'RemoteDeck.lnk'),(Join-Path $startup 'RemoteDeck.lnk'),(Join-Path $desktop 'Remote Media Control.lnk'),(Join-Path $programs 'Remote Media Control.lnk'),(Join-Path $startup 'Remote Media Control.lnk'))
+    if (!$all) { $paths = @((Join-Path $startup 'RemoteDeck.lnk'),(Join-Path $startup 'Remote Media Control.lnk')) }
     foreach($path in $paths) { Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue }
 }
 
@@ -34,13 +36,14 @@ switch ($Mode) {
     'Install' {
         Push-Location $Root
         try { & npm.cmd install --omit=dev --no-audit --no-fund; if($LASTEXITCODE -ne 0){throw 'Could not install the server dependency. Check the internet connection and run setup.bat again.'} } finally { Pop-Location }
-        foreach($path in @((Join-Path $desktop 'Remote Media Control.lnk'),(Join-Path $programs 'Remote Media Control.lnk'),(Join-Path $startup 'Remote Media Control.lnk'))) {
+        Remove-Links $true
+        foreach($path in @((Join-Path $desktop 'RemoteDeck.lnk'),(Join-Path $programs 'RemoteDeck.lnk'),(Join-Path $startup 'RemoteDeck.lnk'))) {
             $shortcut = $shell.CreateShortcut($path)
-            $shortcut.TargetPath = $powershell
-            $shortcut.Arguments = "-NoLogo -NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File `"$tray`""
+            $shortcut.TargetPath = $wscript
+            $shortcut.Arguments = "//B `"$hiddenLauncher`""
             $shortcut.WorkingDirectory = $Root
-            $shortcut.Description = 'Start the Remote Media listener in the system tray'
-            $shortcut.IconLocation = "$env:SystemRoot\System32\imageres.dll,101"
+            $shortcut.Description = 'Start RemoteDeck in the system tray'
+            $shortcut.IconLocation = (Join-Path $Root 'assets\remote-media.ico')
             $shortcut.Save()
         }
         Start-Tray

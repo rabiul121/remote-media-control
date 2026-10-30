@@ -1,4 +1,4 @@
 @echo off
 cd /d "%~dp0"
-node server.js
-pause
+start "" /b wscript.exe //B "%~dp0start-hidden.vbs"
+endlocal

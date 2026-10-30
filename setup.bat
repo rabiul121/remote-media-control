@@ -1,12 +1,12 @@
 @echo off
 setlocal
-title Remote Media Control Setup
+title RemoteDeck Setup
 cd /d "%~dp0"
 if /i "%~1"=="/start" goto start
 :menu
 cls
 echo ======================================
-echo       REMOTE MEDIA CONTROL
+echo           REMOTEDECK
 echo ======================================
 echo.
 echo   1. Install and start

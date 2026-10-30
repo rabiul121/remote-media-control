@@ -330,119 +330,12 @@ function searchWeb() {
   );
 }
 const keyRows = [
-  [
-    "ESCAPE",
-    "F1",
-    "F2",
-    "F3",
-    "F4",
-    "F5",
-    "F6",
-    "F7",
-    "F8",
-    "F9",
-    "F10",
-    "F11",
-    "F12",
-    "PRINTSCREEN",
-    "SCROLLLOCK",
-    "PAUSE",
-  ],
-  [
-    "BACKQUOTE",
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
-    "0",
-    "MINUS",
-    "EQUALS",
-    "BACKSPACE",
-    "INSERT",
-    "HOME",
-    "PAGEUP",
-    "NUMLOCK",
-    "NUMDIVIDE",
-    "NUMMULTIPLY",
-    "NUMSUBTRACT",
-  ],
-  [
-    "TAB",
-    "Q",
-    "W",
-    "E",
-    "R",
-    "T",
-    "Y",
-    "U",
-    "I",
-    "O",
-    "P",
-    "LBRACKET",
-    "RBRACKET",
-    "BACKSLASH",
-    "DELETE",
-    "END",
-    "PAGEDOWN",
-    "NUM7",
-    "NUM8",
-    "NUM9",
-    "NUMADD",
-  ],
-  [
-    "CAPSLOCK",
-    "A",
-    "S",
-    "D",
-    "F",
-    "G",
-    "H",
-    "J",
-    "K",
-    "L",
-    "SEMICOLON",
-    "QUOTE",
-    "ENTER",
-    "NUM4",
-    "NUM5",
-    "NUM6",
-  ],
-  [
-    "SHIFT",
-    "Z",
-    "X",
-    "C",
-    "V",
-    "B",
-    "N",
-    "M",
-    "COMMA",
-    "PERIOD",
-    "SLASH",
-    "UP",
-    "NUM1",
-    "NUM2",
-    "NUM3",
-    "NUMENTER",
-  ],
-  [
-    "CTRL",
-    "WIN",
-    "ALT",
-    "SPACE",
-    "ALTGR",
-    "MENU",
-    "LEFT",
-    "DOWN",
-    "RIGHT",
-    "NUM0",
-    "NUMDECIMAL",
-  ],
+  ["ESCAPE", ...Array.from({ length: 12 }, (_, i) => `F${i + 1}`)],
+  ["BACKQUOTE", ..."1234567890", "MINUS", "EQUALS", "BACKSPACE"],
+  ["TAB", ..."QWERTYUIOP", "LBRACKET", "RBRACKET", "BACKSLASH"],
+  ["CAPSLOCK", ..."ASDFGHJKL", "SEMICOLON", "QUOTE", "ENTER"],
+  ["SHIFT", ..."ZXCVBNM", "COMMA", "PERIOD", "SLASH", "SHIFT"],
+  ["CTRL", "WIN", "ALT", "SPACE", "ALTGR", "MENU"],
 ];
 const keyLabels = {
   ESCAPE: "Esc",
@@ -487,62 +380,93 @@ const keyLabels = {
 };
 function buildKeyboard() {
   const layout = $("#keyboard-layout");
+  const numpad = $("#numpad-layout");
+  const createKey = (key) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "action-button keyboard-key";
+    button.dataset.key = key;
+    button.textContent = keyLabels[key] || key;
+    button.setAttribute("aria-label", key);
+    if (
+      [
+        "BACKSPACE",
+        "TAB",
+        "CAPSLOCK",
+        "ENTER",
+        "SHIFT",
+        "CTRL",
+        "ALT",
+        "ALTGR",
+        "MENU",
+      ].includes(key)
+    )
+      button.classList.add("key-wide");
+    if (key === "SPACE") button.classList.add("key-space");
+    return button;
+  };
   keyRows.forEach((keys) => {
     const row = document.createElement("div");
     row.className = "keyboard-row";
-    keys.forEach((key) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "action-button keyboard-key";
-      button.dataset.key = key;
-      button.textContent = keyLabels[key] || key;
-      button.setAttribute("aria-label", key);
-      if (key === "SPACE") button.classList.add("key-space");
-      if (
-        [
-          "BACKSPACE",
-          "TAB",
-          "CAPSLOCK",
-          "ENTER",
-          "SHIFT",
-          "CTRL",
-          "ALT",
-          "ALTGR",
-          "MENU",
-          "NUMADD",
-          "NUMENTER",
-        ].includes(key)
-      )
-        button.classList.add("key-wide");
-      button.addEventListener("click", () => {
-        if (["CTRL", "SHIFT", "ALT"].includes(key)) {
-          const name = key.toLowerCase();
-          if (activeModifiers.has(name)) activeModifiers.delete(name);
-          else activeModifiers.add(name);
-          document
-            .querySelector(`[data-modifier="${name}"]`)
-            .classList.toggle("active", activeModifiers.has(name));
-          document
-            .querySelectorAll(`[data-key="${key}"]`)
-            .forEach((el) =>
-              el.classList.toggle("active", activeModifiers.has(name)),
-            );
-          return;
-        }
-        command("keyboardPress", {
-          key,
-          modifiers: {
-            ctrl: activeModifiers.has("ctrl"),
-            alt: activeModifiers.has("alt"),
-            shift: activeModifiers.has("shift"),
-            win: activeModifiers.has("win"),
-          },
-        });
-      });
-      row.append(button);
-    });
+    keys.forEach((key) => row.append(createKey(key)));
     layout.append(row);
   });
+  [
+    "PRINTSCREEN",
+    "SCROLLLOCK",
+    "PAUSE",
+    "INSERT",
+    "DELETE",
+    "HOME",
+    "END",
+    "PAGEUP",
+    "PAGEDOWN",
+  ].forEach((key) => $("#keyboard-extra-keys").append(createKey(key)));
+  [
+    ["NUMLOCK", "NUMDIVIDE", "NUMMULTIPLY", "NUMSUBTRACT"],
+    ["NUM7", "NUM8", "NUM9", "NUMADD"],
+    ["NUM4", "NUM5", "NUM6", "NUMENTER"],
+    ["NUM1", "NUM2", "NUM3", "NUMENTER"],
+    ["NUM0", "NUM0", "NUMDECIMAL", "NUMENTER"],
+  ].forEach((keys) => {
+    const row = document.createElement("div");
+    row.className = "numpad-row";
+    keys.forEach((key, index) => {
+      const button = createKey(key);
+      if (key === "NUM0" && index < 2) button.classList.add("numpad-zero");
+      row.append(button);
+    });
+    numpad.append(row);
+  });
+  numpad.querySelectorAll('[data-key="NUM0"]')[1]?.remove();
+  document.querySelectorAll(".keyboard-key").forEach((button) =>
+    button.addEventListener("click", () => {
+      const key = button.dataset.key;
+      if (["CTRL", "SHIFT", "ALT"].includes(key)) {
+        const name = key.toLowerCase();
+        if (activeModifiers.has(name)) activeModifiers.delete(name);
+        else activeModifiers.add(name);
+        document
+          .querySelector(`[data-modifier="${name}"]`)
+          .classList.toggle("active", activeModifiers.has(name));
+        document
+          .querySelectorAll(`[data-key="${key}"]`)
+          .forEach((el) =>
+            el.classList.toggle("active", activeModifiers.has(name)),
+          );
+        return;
+      }
+      command("keyboardPress", {
+        key,
+        modifiers: {
+          ctrl: activeModifiers.has("ctrl"),
+          alt: activeModifiers.has("alt"),
+          shift: activeModifiers.has("shift"),
+          win: activeModifiers.has("win"),
+        },
+      });
+    }),
+  );
   document.querySelectorAll("[data-modifier]").forEach((button) =>
     button.addEventListener("click", () => {
       const name = button.dataset.modifier;
@@ -556,6 +480,20 @@ function buildKeyboard() {
         );
     }),
   );
+  const toggleNumpad = (show) => {
+    $("#numpad-panel").classList.toggle("hidden", !show);
+    $("#numpad-toggle").setAttribute("aria-expanded", String(show));
+    $("#numpad-toggle").title = show
+      ? "Hide numeric keypad"
+      : "Show numeric keypad";
+    $("#numpad-toggle").innerHTML = show
+      ? "× <span>Hide numpad</span>"
+      : "▦ <span>Numpad</span>";
+  };
+  $("#numpad-toggle").addEventListener("click", () =>
+    toggleNumpad($("#numpad-panel").classList.contains("hidden")),
+  );
+  $("#numpad-hide").addEventListener("click", () => toggleNumpad(false));
 }
 buildKeyboard();
 async function mouseCommand(action, extra = {}) {
@@ -749,9 +687,17 @@ $("#mouse-drag-toggle").addEventListener("click", () =>
 );
 let padActive = false,
   lastPadPoint = null,
+  gesture = null,
   pendingMouse = { dx: 0, dy: 0 },
   mouseMoveTimer = null;
 const pad = $("#mouse-pad");
+const padPointers = new Map();
+const touchDistance = (points) =>
+  Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+const touchCenter = (points) => ({
+  x: (points[0].x + points[1].x) / 2,
+  y: (points[0].y + points[1].y) / 2,
+});
 function flushMouseMove() {
   mouseMoveTimer = null;
   const dx = pendingMouse.dx,
@@ -761,12 +707,62 @@ function flushMouseMove() {
 }
 pad.addEventListener("pointerdown", (e) => {
   padActive = true;
+  padPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   lastPadPoint = { x: e.clientX, y: e.clientY };
   pad.setPointerCapture(e.pointerId);
+  if (padPointers.size === 2) {
+    const points = [...padPointers.values()];
+    gesture = {
+      startDistance: touchDistance(points),
+      startCenter: touchCenter(points),
+      lastCenter: touchCenter(points),
+      mode: "pending",
+    };
+    lastPadPoint = null;
+    pendingMouse = { dx: 0, dy: 0 };
+    clearTimeout(mouseMoveTimer);
+    mouseMoveTimer = null;
+  }
   e.preventDefault();
 });
 pad.addEventListener("pointermove", (e) => {
-  if (!padActive || !lastPadPoint) return;
+  if (!padActive) return;
+  if (padPointers.has(e.pointerId))
+    padPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (padPointers.size >= 2 && gesture) {
+    const points = [...padPointers.values()].slice(0, 2);
+    const center = touchCenter(points);
+    const distanceChange = touchDistance(points) - gesture.startDistance;
+    if (gesture.mode === "pending" && Math.abs(distanceChange) > 26) {
+      gesture.mode = "pinch";
+      command("keyboardPress", {
+        key: distanceChange > 0 ? "EQUALS" : "MINUS",
+        modifiers: { ctrl: true, shift: distanceChange > 0 },
+      });
+      notify(distanceChange > 0 ? "Zoom in" : "Zoom out");
+    } else if (
+      gesture.mode === "pending" &&
+      Math.abs(center.y - gesture.startCenter.y) > 26 &&
+      Math.abs(center.y - gesture.startCenter.y) >
+        Math.abs(center.x - gesture.startCenter.x)
+    ) {
+      gesture.mode = "scroll";
+    }
+    if (gesture.mode === "scroll") {
+      const deltaY = center.y - gesture.lastCenter.y;
+      if (Math.abs(deltaY) >= 35) {
+        const action = deltaY < 0 ? "mouseScrollUp" : "mouseScrollDown";
+        request("/api/control", {
+          method: "POST",
+          body: JSON.stringify({ action }),
+        }).catch((error) => notify(error.message));
+        gesture.lastCenter = center;
+      }
+    }
+    e.preventDefault();
+    return;
+  }
+  if (!lastPadPoint) return;
   pendingMouse.dx += Math.round((e.clientX - lastPadPoint.x) * 2.2);
   pendingMouse.dy += Math.round((e.clientY - lastPadPoint.y) * 2.2);
   lastPadPoint = { x: e.clientX, y: e.clientY };
@@ -774,10 +770,17 @@ pad.addEventListener("pointermove", (e) => {
   e.preventDefault();
 });
 const endPad = (e) => {
-  padActive = false;
-  lastPadPoint = null;
+  padPointers.delete(e.pointerId);
   if (pad.hasPointerCapture(e.pointerId))
     pad.releasePointerCapture(e.pointerId);
+  if (padPointers.size === 1) {
+    lastPadPoint = [...padPointers.values()][0];
+    gesture = null;
+  } else if (!padPointers.size) {
+    padActive = false;
+    lastPadPoint = null;
+    gesture = null;
+  }
 };
 pad.addEventListener("pointerup", endPad);
 pad.addEventListener("pointercancel", endPad);
