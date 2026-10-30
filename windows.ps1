@@ -12,22 +12,32 @@ using System.Runtime.InteropServices;
 using System.Collections.Generic;
 
 public static class WinAudio {
+  [StructLayout(LayoutKind.Sequential)] struct KeyboardInput { public ushort virtualKey; public ushort scanCode; public uint flags; public uint time; public UIntPtr extraInfo; }
+  [StructLayout(LayoutKind.Sequential)] struct MouseInput { public int dx; public int dy; public uint data; public uint flags; public uint time; public UIntPtr extraInfo; }
+  [StructLayout(LayoutKind.Explicit)] struct InputUnion { [FieldOffset(0)] public KeyboardInput keyboard; [FieldOffset(0)] public MouseInput mouse; }
+  [StructLayout(LayoutKind.Sequential)] struct Input { public uint type; public InputUnion value; }
   [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
   [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr hWnd);
   [DllImport("user32.dll")] static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+  [DllImport("user32.dll")] static extern bool IsIconic(IntPtr hWnd);
   [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] static extern IntPtr GetFocus();
+  [DllImport("user32.dll")] static extern short GetKeyState(int key);
   [DllImport("user32.dll")] static extern bool IsWindow(IntPtr hWnd);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr hWnd,System.Text.StringBuilder text,int maxCount);
   [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd,out uint processId);
   [DllImport("user32.dll")] static extern bool PostMessage(IntPtr hWnd,uint message,IntPtr wParam,IntPtr lParam);
   [DllImport("user32.dll")] static extern bool BringWindowToTop(IntPtr hWnd);
   [DllImport("user32.dll")] static extern bool AttachThreadInput(uint from,uint to,bool attach);
+  [DllImport("user32.dll")] static extern uint MapVirtualKey(uint code,uint mapType);
+  [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd,uint message,IntPtr wParam,IntPtr lParam);
+  [DllImport("user32.dll",SetLastError=true)] static extern uint SendInput(uint count,Input[] inputs,int size);
   [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
   public static IntPtr ForegroundHandle() { return GetForegroundWindow(); }
   public static string WindowTitle(long handle) { var text=new System.Text.StringBuilder(512); GetWindowText(new IntPtr(handle),text,text.Capacity); return text.ToString(); }
   public static uint WindowProcessId(long handle) { uint id; GetWindowThreadProcessId(new IntPtr(handle),out id); return id; }
   public static bool ActivateWindow(long handle) {
-    var h=new IntPtr(handle); if(!IsWindow(h))return false; ShowWindowAsync(h,9);
+    var h=new IntPtr(handle); if(!IsWindow(h))return false; if(IsIconic(h))ShowWindowAsync(h,9);
     uint foregroundPid,targetPid; var foreground=GetForegroundWindow(); uint current=GetCurrentThreadId();
     uint foregroundThread=foreground==IntPtr.Zero?0:GetWindowThreadProcessId(foreground,out foregroundPid);
     uint targetThread=GetWindowThreadProcessId(h,out targetPid); bool attachForeground=false,attachTarget=false;
@@ -41,9 +51,46 @@ public static class WinAudio {
     }
     System.Threading.Thread.Sleep(60); return GetForegroundWindow()==h;
   }
+  public static bool WindowExists(long handle) { return handle!=0 && IsWindow(new IntPtr(handle)); }
+  public static bool IsKeyLocked(int key) { return (GetKeyState(key) & 1) != 0; }
   public static bool SetWindowState(long handle,int state) { var h=new IntPtr(handle); if(!IsWindow(h))return false; ShowWindowAsync(h,state); return true; }
   public static bool CloseWindow(long handle) { var h=new IntPtr(handle); return IsWindow(h) && PostMessage(h,0x0112,new IntPtr(0xF060),IntPtr.Zero); }
   public const uint KEYUP = 2;
+  public static void ReleaseRemoteModifiers() {
+    keybd_event(0x5B,0,KEYUP,UIntPtr.Zero); keybd_event(0x5C,0,KEYUP,UIntPtr.Zero);
+    keybd_event(0x11,0,KEYUP,UIntPtr.Zero); keybd_event(0x10,0,KEYUP,UIntPtr.Zero);
+    keybd_event(0x12,0,KEYUP,UIntPtr.Zero);
+  }
+  static void WindowKey(IntPtr target,byte key,bool down,bool system=false) {
+    uint scan=MapVirtualKey(key,0); long data=1L|((long)scan<<16);
+    if(system)data|=1L<<29;
+    if(!down)data|=0xC0000000L;
+    uint message=system?(down?0x0104u:0x0105u):(down?0x0100u:0x0101u);
+    SendMessage(target,message,new IntPtr(key),new IntPtr(data));
+  }
+  public static bool SendWindowKey(long handle,byte key,bool ctrl=false,bool shift=false,bool alt=false) {
+    var h=new IntPtr(handle); if(!IsWindow(h))return false;
+    uint pid; uint targetThread=GetWindowThreadProcessId(h,out pid),current=GetCurrentThreadId(); bool attached=false;
+    try {
+      if(targetThread!=0&&targetThread!=current)attached=AttachThreadInput(current,targetThread,true);
+      var target=GetFocus(); if(target==IntPtr.Zero)target=h;
+      if(ctrl)WindowKey(target,0x11,true); if(shift)WindowKey(target,0x10,true); if(alt)WindowKey(target,0x12,true,true);
+      try { WindowKey(target,key,true,alt); WindowKey(target,key,false,alt); }
+      finally { if(alt)WindowKey(target,0x12,false,true); if(shift)WindowKey(target,0x10,false); if(ctrl)WindowKey(target,0x11,false); }
+      return true;
+    } finally { if(attached)AttachThreadInput(current,targetThread,false); }
+  }
+  public static bool SendBrowserKey(long handle,byte key,bool ctrl=false,bool shift=false,bool alt=false) {
+    ReleaseRemoteModifiers();
+    var inputs=new List<Input>();
+    Action<byte,bool> addKey=(vk,up)=>inputs.Add(new Input{type=1,value=new InputUnion{keyboard=new KeyboardInput{virtualKey=vk,flags=up?KEYUP:0}}});
+    addKey(0x5B,true); addKey(0x5C,true);
+    if(ctrl)addKey(0x11,false); if(shift)addKey(0x10,false); if(alt)addKey(0x12,false);
+    addKey(key,false); addKey(key,true);
+    if(alt)addKey(0x12,true); if(shift)addKey(0x10,true); if(ctrl)addKey(0x11,true);
+    addKey(0x5B,true); addKey(0x5C,true);
+    return SendInput((uint)inputs.Count,inputs.ToArray(),Marshal.SizeOf(typeof(Input)))==inputs.Count;
+  }
   public static bool ActivatePlayer(string name) {
     string[] names=name=="mpc-hc64"?new string[]{"mpc-hc","mpc-hc64"}:name=="potplayer"?new string[]{"PotPlayerMini64","PotPlayerMini","PotPlayer"}:new string[]{name};
     foreach(var item in names) foreach(var p in System.Diagnostics.Process.GetProcessesByName(item)) {
@@ -217,7 +264,19 @@ if ($Action -eq 'state') {
   $procs = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -in @('vlc','MusicBee','PotPlayer','PotPlayerMini','PotPlayerMini64','mpc-hc','mpc-hc64','wmplayer') } | Select-Object -ExpandProperty ProcessName -Unique
   $running = @($procs | ForEach-Object { switch -Regex ($_.ToLowerInvariant()) { '^mpc-hc$' { 'mpc-hc64' } '^potplayermini' { 'potplayer' } default { $_.ToLowerInvariant() } } })
   $active = @([AudioControl]::GetPlayers() | ForEach-Object { [pscustomobject]@{name=$_.name;volume=[math]::Round($_.volume*100);muted=$_.muted} })
-  [pscustomobject]@{systemVolume=[math]::Round($vol*100);systemMuted=$mute;players=$active;running=$running;browsers=$availableBrowsers} | ConvertTo-Json -Compress -Depth 4
+  $foreground=Get-CurrentWindow
+  $foregroundPid=[WinAudio]::WindowProcessId([long]$foreground.handle)
+  $foregroundProcess=if($foregroundPid){Get-Process -Id $foregroundPid -ErrorAction SilentlyContinue}else{$null}
+  $foregroundName=if($foregroundProcess){$foregroundProcess.ProcessName}else{''}
+  $foregroundWindow=if($foreground.title -and $foregroundName -notmatch '^(powershell|pwsh|node|conhost|explorer|SearchHost|ShellExperienceHost|StartMenuExperienceHost|TextInputHost|LockApp)$'){[long]$foreground.handle}else{0}
+  $foregroundExplorerWindow=if($foreground.title -and $foregroundName -eq 'explorer'){[long]$foreground.handle}else{0}
+  $targetOwner=[WinAudio]::WindowProcessId([long]$payload.targetWindow)
+  $targetProcess=if($targetOwner){Get-Process -Id $targetOwner -ErrorAction SilentlyContinue}else{$null}
+  $targetWindowExists=[WinAudio]::WindowExists([long]$payload.targetWindow) -and $targetProcess -and $targetProcess.ProcessName -notmatch '^(powershell|pwsh|node|conhost|explorer|SearchHost|ShellExperienceHost|StartMenuExperienceHost|TextInputHost|LockApp)$'
+  $explorerOwner=[WinAudio]::WindowProcessId([long]$payload.explorerWindow)
+  $explorerProcess=if($explorerOwner){Get-Process -Id $explorerOwner -ErrorAction SilentlyContinue}else{$null}
+  $explorerTargetWindowExists=[WinAudio]::WindowExists([long]$payload.explorerWindow) -and $explorerProcess -and $explorerProcess.ProcessName -eq 'explorer'
+  [pscustomobject]@{systemVolume=[math]::Round($vol*100);systemMuted=$mute;players=$active;running=$running;browsers=$availableBrowsers;foregroundWindow=$foregroundWindow;foregroundExplorerWindow=$foregroundExplorerWindow;capsLock=[WinAudio]::IsKeyLocked(0x14);numLock=[WinAudio]::IsKeyLocked(0x90);scrollLock=[WinAudio]::IsKeyLocked(0x91);targetWindowExists=[bool]$targetWindowExists;explorerTargetWindowExists=[bool]$explorerTargetWindowExists} | ConvertTo-Json -Compress -Depth 4
   exit 0
 }
 
@@ -242,25 +301,27 @@ if ($Action -eq 'control') {
       [Console]::Out.Write($handle)
       exit 0
     }
-    { $_ -in @('browserBack','browserForward','browserReload','browserHome','browserArrowUp','browserArrowDown','browserArrowLeft','browserArrowRight','browserScrollUp','browserScrollDown','browserTab','browserShiftTab','browserEnter','browserEscape') } {
+    { $_ -in @('browserBack','browserForward','browserReload','browserHome','browserArrowUp','browserArrowDown','browserArrowLeft','browserArrowRight','browserScrollUp','browserScrollDown','browserTab','browserShiftTab','browserEnter','browserEscape','browserCloseTab') } {
       $handle=[long]$payload.targetWindow
+      [WinAudio]::ReleaseRemoteModifiers()
       if(-not [WinAudio]::ActivateWindow($handle)){throw 'Open a browser from the Browser tab first.'}
       Start-Sleep -Milliseconds 80
       switch($a){
-        'browserBack' {[WinAudio]::Tap(0x25,$false,$false,$true)}
-        'browserForward' {[WinAudio]::Tap(0x27,$false,$false,$true)}
-        'browserReload' {[WinAudio]::Tap(0x52,$true)}
-        'browserHome' {[WinAudio]::Tap(0x24,$false,$false,$true)}
-        'browserArrowUp' {[WinAudio]::Tap(0x26)}
-        'browserArrowDown' {[WinAudio]::Tap(0x28)}
-        'browserArrowLeft' {[WinAudio]::Tap(0x25)}
-        'browserArrowRight' {[WinAudio]::Tap(0x27)}
-        'browserScrollUp' {[WinAudio]::Tap(0x21)}
-        'browserScrollDown' {[WinAudio]::Tap(0x22)}
-        'browserTab' {[WinAudio]::Tap(0x09)}
-        'browserShiftTab' {[WinAudio]::Tap(0x09,$false,$true)}
-        'browserEnter' {[WinAudio]::Tap(0x0D)}
-        'browserEscape' {[WinAudio]::Tap(0x1B)}
+        'browserBack' {if(-not [WinAudio]::SendBrowserKey($handle,0x25,$false,$false,$true)){throw 'Could not send input to the browser.'}}
+        'browserForward' {if(-not [WinAudio]::SendBrowserKey($handle,0x27,$false,$false,$true)){throw 'Could not send input to the browser.'}}
+        'browserReload' {if(-not [WinAudio]::SendBrowserKey($handle,0x52,$true)){throw 'Could not send input to the browser.'}}
+        'browserHome' {if(-not [WinAudio]::SendBrowserKey($handle,0x24,$false,$false,$true)){throw 'Could not send input to the browser.'}}
+        'browserArrowUp' {if(-not [WinAudio]::SendBrowserKey($handle,0x26)){throw 'Could not send input to the browser.'}}
+        'browserArrowDown' {if(-not [WinAudio]::SendBrowserKey($handle,0x28)){throw 'Could not send input to the browser.'}}
+        'browserArrowLeft' {if(-not [WinAudio]::SendBrowserKey($handle,0x25)){throw 'Could not send input to the browser.'}}
+        'browserArrowRight' {if(-not [WinAudio]::SendBrowserKey($handle,0x27)){throw 'Could not send input to the browser.'}}
+        'browserScrollUp' {if(-not [WinAudio]::SendBrowserKey($handle,0x21)){throw 'Could not send input to the browser.'}}
+        'browserScrollDown' {if(-not [WinAudio]::SendBrowserKey($handle,0x22)){throw 'Could not send input to the browser.'}}
+        'browserTab' {if(-not [WinAudio]::SendBrowserKey($handle,0x09)){throw 'Could not send input to the browser.'}}
+        'browserShiftTab' {if(-not [WinAudio]::SendBrowserKey($handle,0x09,$false,$true)){throw 'Could not send input to the browser.'}}
+        'browserEnter' {if(-not [WinAudio]::SendBrowserKey($handle,0x0D)){throw 'Could not send input to the browser.'}}
+        'browserEscape' {if(-not [WinAudio]::SendBrowserKey($handle,0x1B)){throw 'Could not send input to the browser.'}}
+        'browserCloseTab' {if(-not [WinAudio]::SendBrowserKey($handle,0x57,$true)){throw 'Could not send input to the browser.'}}
       }
     }
     { $_ -in @('browserMinimize','browserMaximize','browserRestore') } {
@@ -271,7 +332,7 @@ if ($Action -eq 'control') {
     'browserFullscreen' {
       $handle=[long]$payload.targetWindow
       if(-not [WinAudio]::ActivateWindow($handle)){throw 'Open a browser from the Browser tab first.'}
-      [WinAudio]::Tap(0x7A)
+      [WinAudio]::SendWindowKey($handle,0x7A)
     }
     'browserClose' {if(-not [WinAudio]::CloseWindow([long]$payload.targetWindow)){throw 'Open a browser from the Browser tab first.'}}
     'keyboardPress' {
@@ -308,7 +369,7 @@ if ($Action -eq 'control') {
         default { throw 'Full screen toggle is supported for VLC, PotPlayer, and MPC-HC.' }
       }
     }
-    { $_ -in @('defaultScrollUp','defaultScrollDown','defaultPrevious','defaultNext','defaultArrowUp','defaultArrowDown','defaultArrowLeft','defaultArrowRight','defaultFullscreen') } {
+    { $_ -in @('defaultScrollUp','defaultScrollDown','defaultPrevious','defaultNext','defaultArrowUp','defaultArrowDown','defaultArrowLeft','defaultArrowRight','defaultHome','defaultEnd','defaultFullscreen') } {
       $handle=[long]$payload.targetWindow
       if(-not [WinAudio]::ActivateWindow($handle)){throw 'Open a file in its default app first.'}
       Start-Sleep -Milliseconds 80
@@ -321,6 +382,8 @@ if ($Action -eq 'control') {
         'defaultArrowDown' { [WinAudio]::Tap(0x28) }
         'defaultArrowLeft' { [WinAudio]::Tap(0x25) }
         'defaultArrowRight' { [WinAudio]::Tap(0x27) }
+        'defaultHome' { [WinAudio]::Tap(0x24) }
+        'defaultEnd' { [WinAudio]::Tap(0x23) }
         'defaultFullscreen' {
           $owner=[WinAudio]::WindowProcessId($handle)
           $app=if($owner){Get-Process -Id $owner -ErrorAction SilentlyContinue}else{$null}
@@ -336,7 +399,35 @@ if ($Action -eq 'control') {
     'defaultClose' { if(-not [WinAudio]::CloseWindow([long]$payload.targetWindow)){throw 'Open a file in its default app first.'} }
     { $_ -in @('explorerUp','explorerDown','explorerLeft','explorerRight','explorerTab','explorerShiftTab','explorerEnter','explorerClose') } {
       $handle=[long]$payload.targetWindow
-      if(-not [WinAudio]::ActivateWindow($handle)){throw 'Open a folder in Explorer first.'}
+      $foreground=Get-CurrentWindow
+      $foregroundPid=[WinAudio]::WindowProcessId([long]$foreground.handle)
+      $foregroundProcess=if($foregroundPid){Get-Process -Id $foregroundPid -ErrorAction SilentlyContinue}else{$null}
+      if($foreground.title -and $foregroundProcess -and $foregroundProcess.ProcessName -eq 'explorer'){$handle=[long]$foreground.handle}
+      if($handle) {
+        $targetOwner=[WinAudio]::WindowProcessId($handle)
+        $targetProcess=if($targetOwner){Get-Process -Id $targetOwner -ErrorAction SilentlyContinue}else{$null}
+        if(-not $targetProcess -or $targetProcess.ProcessName -ne 'explorer'){$handle=0}
+      }
+      if($a -eq 'explorerClose') {
+        if($handle -and [WinAudio]::CloseWindow($handle)) {
+          for($wait=0;$wait -lt 30;$wait++){if(-not [WinAudio]::WindowExists($handle)){exit 0};Start-Sleep -Milliseconds 50}
+        }
+        foreach($windowProcess in (Get-Process -Name explorer -ErrorAction SilentlyContinue)) {
+          $candidate=[long]$windowProcess.MainWindowHandle
+          if($candidate -and [WinAudio]::CloseWindow($candidate)) {
+            for($wait=0;$wait -lt 30;$wait++){if(-not [WinAudio]::WindowExists($candidate)){exit 0};Start-Sleep -Milliseconds 50}
+          }
+        }
+        throw 'Windows Explorer is not open or could not be closed.'
+      }
+      $activated=[WinAudio]::ActivateWindow($handle)
+      if(-not $activated -and [long][WinAudio]::ForegroundHandle() -ne $handle) {
+        foreach($windowProcess in (Get-Process -Name explorer -ErrorAction SilentlyContinue)) {
+          $candidate=[long]$windowProcess.MainWindowHandle
+          if($candidate -and [WinAudio]::ActivateWindow($candidate)){$handle=$candidate;$activated=$true;break}
+        }
+      }
+      if(-not $activated){throw 'Windows Explorer is not open or could not be focused. Open a folder in Explorer first.'}
       Start-Sleep -Milliseconds 80
       switch ($a) {
         'explorerUp' { [WinAudio]::Tap(0x26) }
@@ -346,7 +437,6 @@ if ($Action -eq 'control') {
         'explorerTab' { [WinAudio]::Tap(0x09) }
         'explorerShiftTab' { [WinAudio]::Tap(0x09,$false,$true) }
         'explorerEnter' { [WinAudio]::Tap(0x0D) }
-        'explorerClose' { [WinAudio]::Tap(0x73,$false,$false,$true) }
       }
     }
     'systemVolume' { [AudioControl]::SetSystemVolume([single]$value) }

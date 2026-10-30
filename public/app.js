@@ -13,7 +13,7 @@ let state = null,
   toastTimer = null,
   debounce = {},
   currentFolder = "",
-  currentPage = localStorage.getItem("remote-media-page") || "playback",
+  currentPage = "home",
   selectedBrowser = localStorage.getItem("remote-media-browser") || "default",
   searchProvider =
     localStorage.getItem("remote-media-search-provider") || "google",
@@ -29,8 +29,8 @@ const players = {
   vlc: "VLC",
   musicbee: "MusicBee",
   potplayer: "PotPlayer",
-  "mpc-hc": "MPC-HC",
-  "mpc-hc64": "MPC-HC",
+  "mpc-hc": "K-Lite Codec",
+  "mpc-hc64": "K-Lite Codec",
   wmplayer: "Windows Media Player",
 };
 const headers = () => ({
@@ -55,23 +55,33 @@ function notify(msg) {
 }
 function showPage(page) {
   if (
-    !["playback", "files", "browser", "window", "mouse", "keyboard"].includes(
-      page,
-    )
+    ![
+      "home",
+      "playback",
+      "files",
+      "browser",
+      "window",
+      "mouse",
+      "keyboard",
+    ].includes(page)
   )
-    page = "playback";
+    page = "home";
   currentPage = page;
   document
     .querySelectorAll("[data-page-panel]")
     .forEach((el) =>
       el.classList.toggle("active", el.dataset.pagePanel === page),
     );
-  document.querySelectorAll(".page-tab").forEach((el) => {
-    const active = el.dataset.page === page;
+  document.querySelectorAll("[data-go-page]").forEach((el) => {
+    const active = el.dataset.goPage === page;
     el.classList.toggle("active", active);
     el.setAttribute("aria-current", active ? "page" : "false");
   });
+  document
+    .querySelector(".welcome")
+    .classList.toggle("hidden", page !== "home");
   localStorage.setItem("remote-media-page", page);
+  if (page === "window" && token) refresh();
 }
 function setTheme(theme) {
   colorTheme = theme === "light" ? "light" : "dark";
@@ -120,6 +130,19 @@ function setRange(input, value) {
 }
 function paint(s) {
   state = s;
+  const lockStates = [
+    ["numLock", "lock-num", "NUMLOCK", "Num Lock"],
+    ["capsLock", "lock-caps", "CAPSLOCK", "Caps Lock"],
+    ["scrollLock", "lock-scroll", "SCROLLLOCK", "Scroll Lock"],
+  ];
+  for (const [property, id, key, label] of lockStates) {
+    const active = !!s[property];
+    const indicator = $("#" + id);
+    indicator.classList.toggle("active", active);
+    indicator.setAttribute("aria-label", label + (active ? " on" : " off"));
+    document.querySelectorAll('[data-key="' + key + '"]')
+      .forEach((button) => button.classList.toggle("lock-on", active));
+  }
   for (const b of document.querySelectorAll(".player-option")) {
     const name = b.dataset.player;
     const active = (s.running || []).includes(name);
@@ -152,62 +175,34 @@ function paint(s) {
   }
   for (const b of document.querySelectorAll(".player-option"))
     b.classList.toggle("selected", b.dataset.player === selected);
-  $("#selected-hint").textContent =
-    (selected
-      ? "Selected: " +
-        formatPlayer(selected) +
-        ". Open, close, seek, and full screen controls target this player."
-      : "Select a player first.") + " For K-Lite, choose MPC-HC.";
   setRange($("#system-volume"), s.systemVolume ?? 0);
   $("#system-value").value = s.systemVolume ?? 0;
   $("#system-mute").classList.toggle("active", !!s.systemMuted);
   document
-    .querySelectorAll("#explorer-remote [data-action]")
-    .forEach((b) => (b.disabled = !s.explorerReady));
-  document
     .querySelectorAll("#default-file-actions [data-action]")
     .forEach((b) => (b.disabled = !s.defaultAppReady));
-  $("#window-control-hint").textContent = s.defaultAppReady
-    ? "Controls target the last file opened from this remote."
-    : "Open an image, document, or PDF from Files to control its default app here.";
   document
     .querySelectorAll(
       ".browser-controls [data-action],.browser-keys [data-action]",
     )
     .forEach((b) => (b.disabled = !s.browserReady));
-  $("#browser-hint").textContent = s.browserReady
-    ? "Browser controls target the browser window opened from this tab."
-    : "Choose a browser and open it or tap a site shortcut.";
-  $("#mouse-hint").textContent = s.mouseDragging
-    ? "Selection is active: drag on the pad, then tap Release."
-    : "Start selection, then drag on the pad to select text or items. Release when finished.";
-  $("#mouse-drag-toggle").classList.toggle("active", !!s.mouseDragging);
-  $("#mouse-drag-toggle").querySelector("span").textContent = s.mouseDragging
-    ? "Selecting…"
-    : "Start selection";
-  document.querySelector('[data-mouse-action="mouseLeftUp"]').disabled =
-    !s.mouseDragging;
   const found = (s.players || []).filter((p) => p.name === selected);
   const range = $("#player-volume");
   range.disabled = !found.length;
   $("#player-volume-title").textContent = selected
     ? `${formatPlayer(selected)} volume`
     : "Player volume";
-  $("#player-volume-hint").textContent = found.length
-    ? "App mixer level. This affects only " + formatPlayer(selected) + "."
-    : selected
-      ? "No active audio session. Start playback in " +
-        formatPlayer(selected) +
-        "."
-      : "Choose a running player to control its mixer level.";
   const isRunning = (s.running || []).includes(selected);
-  $(".player-action-label").textContent = selected
-    ? "Open " + formatPlayer(selected)
-    : "Open player";
-  document.querySelector("#player-close .player-action-label").textContent =
-    selected ? "Close " + formatPlayer(selected) : "Close player";
+  const playerLabel = selected ? formatPlayer(selected) : "player";
+  $("#player-selection-label").textContent = selected
+    ? `Player: ${formatPlayer(selected)}`
+    : "Choose player";
+  $("#player-open").title = `Open ${playerLabel}`;
+  $("#player-open").setAttribute("aria-label", `Open ${playerLabel}`);
+  $("#player-close").title = `Close ${playerLabel}`;
+  $("#player-close").setAttribute("aria-label", `Close ${playerLabel}`);
   $("#player-open").disabled = !selected;
-  $("#player-close").disabled = !selected || !isRunning;
+  $("#player-close").disabled = !selected;
   $("#player-fullscreen").disabled =
     !selected ||
     !isRunning ||
@@ -254,27 +249,7 @@ async function command(action, value) {
         ...(value && typeof value === "object" ? value : { value }),
       }),
     });
-    if (
-      action === "systemVolume" ||
-      action === "playerVolume" ||
-      action.startsWith("explorer")
-    )
-      await refresh();
-    if (action.startsWith("default"))
-      notify(
-        "Sent " +
-          action.replace("default", "").toLowerCase() +
-          " to the opened app.",
-      );
-    if (action.startsWith("explorer"))
-      notify(
-        "Sent " +
-          action
-            .replace("explorer", "")
-            .replace(/([A-Z])/g, " $1")
-            .toLowerCase() +
-          " to Windows Explorer.",
-      );
+    if (action === "systemVolume" || action === "playerVolume" || action.startsWith("explorer")) await refresh();
   } catch (e) {
     notify(e.message);
   }
@@ -298,15 +273,7 @@ async function browserCommand(action = "browserOpen", address = "") {
     if (action === "browserOpen") {
       if (url) $("#browser-address").value = url;
       showPage("browser");
-      notify("Opening " + (url || "the browser") + ".");
-    } else
-      notify(
-        action === "browserClose"
-          ? "Closing browser."
-          : "Sent " +
-              action.replace("browser", "").toLowerCase() +
-              " to the browser.",
-      );
+    }
     await refresh();
   } catch (e) {
     notify(e.message);
@@ -330,19 +297,26 @@ function searchWeb() {
   );
 }
 const keyRows = [
-  ["ESCAPE", ...Array.from({ length: 12 }, (_, i) => `F${i + 1}`)],
   ["BACKQUOTE", ..."1234567890", "MINUS", "EQUALS", "BACKSPACE"],
   ["TAB", ..."QWERTYUIOP", "LBRACKET", "RBRACKET", "BACKSLASH"],
   ["CAPSLOCK", ..."ASDFGHJKL", "SEMICOLON", "QUOTE", "ENTER"],
   ["SHIFT", ..."ZXCVBNM", "COMMA", "PERIOD", "SLASH", "SHIFT"],
-  ["CTRL", "WIN", "ALT", "SPACE", "ALTGR", "MENU"],
+  ["CTRL", "WIN", "ALT", "SPACE", "ALTGR", "FN", "MENU", "CTRL"],
 ];
+const functionKeys = [
+  "ESCAPE",
+  ...Array.from({ length: 12 }, (_, i) => "F" + (i + 1)),
+  "PRINTSCREEN",
+  "SCROLLLOCK",
+  "PAUSE",
+];
+const navigationKeys = ["INSERT", "HOME", "PAGEUP", "DELETE", "END", "PAGEDOWN"];
 const keyLabels = {
   ESCAPE: "Esc",
-  BACKQUOTE: "`",
-  MINUS: "−",
+  BACKQUOTE: "\u0060",
+  MINUS: "-",
   EQUALS: "=",
-  BACKSPACE: "⌫",
+  BACKSPACE: "Backspace",
   INSERT: "Ins",
   DELETE: "Del",
   PAGEUP: "PgUp",
@@ -350,7 +324,7 @@ const keyLabels = {
   LBRACKET: "[",
   RBRACKET: "]",
   BACKSLASH: "\\",
-  CAPSLOCK: "Caps",
+  CAPSLOCK: "Caps Lock",
   SEMICOLON: ";",
   QUOTE: "'",
   ENTER: "Enter",
@@ -358,87 +332,165 @@ const keyLabels = {
   CTRL: "Ctrl",
   WIN: "Win",
   ALT: "Alt",
-  ALTGR: "AltGr",
+  ALTGR: "Alt",
+  FN: "Fn",
   MENU: "Menu",
   COMMA: ",",
   PERIOD: ".",
   SLASH: "/",
-  UP: "↑",
-  DOWN: "↓",
-  LEFT: "←",
-  RIGHT: "→",
-  NUMLOCK: "Num",
-  NUMDIVIDE: "÷",
-  NUMMULTIPLY: "×",
-  NUMSUBTRACT: "−",
+  NUMLOCK: "Num\nLock",
+  NUMDIVIDE: "/",
+  NUMMULTIPLY: "*",
+  NUMSUBTRACT: "-",
   NUMADD: "+",
   NUMDECIMAL: ".",
   NUMENTER: "Enter",
-  PRINTSCREEN: "PrtSc",
-  SCROLLLOCK: "ScrLk",
-  PAUSE: "Pause",
+  NUM0: "0",
+  NUM1: "1",
+  NUM2: "2",
+  NUM3: "3",
+  NUM4: "4",
+  NUM5: "5",
+  NUM6: "6",
+  NUM7: "7",
+  NUM8: "8",
+  NUM9: "9",
+  PRINTSCREEN: "Print\nScreen",
+  SCROLLLOCK: "Scroll\nLock",
+  PAUSE: "Pause\nBreak",
 };
+const shiftedLabels = {
+  BACKQUOTE: "~",
+  1: "!",
+  2: "@",
+  3: "#",
+  4: "$",
+  5: "%",
+  6: "^",
+  7: "&",
+  8: "*",
+  9: "(",
+  0: ")",
+  MINUS: "_",
+  EQUALS: "+",
+  LBRACKET: "{",
+  RBRACKET: "}",
+  BACKSLASH: "|",
+  SEMICOLON: ":",
+  QUOTE: '"',
+  COMMA: "<",
+  PERIOD: ">",
+  SLASH: "?",
+};
+function appendKeyIcon(button, key, symbol, label) {
+  button.classList.add("key-labeled");
+  const icon = document.createElement("span");
+  icon.className = "key-icon";
+  icon.setAttribute("aria-hidden", "true");
+  if (key === "CAPSLOCK" || key === "WIN") {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("class", key === "WIN" ? "key-svg windows-glyph" : "key-svg");
+    if (key === "CAPSLOCK") {
+      const body = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      body.setAttribute("x", "5");
+      body.setAttribute("y", "10");
+      body.setAttribute("width", "14");
+      body.setAttribute("height", "10");
+      body.setAttribute("rx", "2");
+      const shackle = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      shackle.setAttribute("d", "M8 10V7a4 4 0 0 1 8 0v3");
+      svg.append(shackle, body);
+    } else {
+      for (const [x, y] of [[3, 3], [13, 3], [3, 13], [13, 13]]) {
+        const pane = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        pane.setAttribute("d", "M" + x + " " + y + "h8v8h-8z");
+        svg.append(pane);
+      }
+    }
+    icon.append(svg);
+  } else {
+    icon.textContent = symbol;
+  }
+  button.append(icon, Object.assign(document.createElement("span"), {
+    className: "key-name",
+    textContent: label,
+  }));
+}
 function buildKeyboard() {
   const layout = $("#keyboard-layout");
+  const functionLayout = $("#keyboard-function-keys");
+  const navigation = $("#keyboard-extra-keys");
   const numpad = $("#numpad-layout");
   const createKey = (key) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "action-button keyboard-key";
     button.dataset.key = key;
-    button.textContent = keyLabels[key] || key;
-    button.setAttribute("aria-label", key);
-    if (
-      [
-        "BACKSPACE",
-        "TAB",
-        "CAPSLOCK",
-        "ENTER",
-        "SHIFT",
-        "CTRL",
-        "ALT",
-        "ALTGR",
-        "MENU",
-      ].includes(key)
-    )
+    button.dataset.baseLabel = keyLabels[key] || key;
+    button.dataset.shiftLabel = shiftedLabels[key] || button.dataset.baseLabel;
+    button.setAttribute("aria-label", keyLabels[key] || key);
+    if (["BACKSPACE", "TAB", "CAPSLOCK", "ENTER", "SHIFT", "CTRL", "ALT", "ALTGR", "MENU"].includes(key))
       button.classList.add("key-wide");
+    if (key === "CAPSLOCK") button.classList.add("key-caps");
+    if (key === "BACKSPACE") appendKeyIcon(button, key, "←", "Backspace");
+    else if (key === "TAB") appendKeyIcon(button, key, "⇥", "Tab");
+    else if (key === "CAPSLOCK") appendKeyIcon(button, key, "", "Caps Lock");
+    else if (key === "ENTER") {
+      button.classList.add("key-enter");
+      appendKeyIcon(button, key, "↵", "Enter");
+    } else if (key === "SHIFT") appendKeyIcon(button, key, "⇧", "Shift");
+    else if (key === "WIN") appendKeyIcon(button, key, "", "Win");
+    else if (key === "MENU") appendKeyIcon(button, key, "☷", "Menu");
+    else if (shiftedLabels[key]) {
+      button.classList.add("key-has-legends");
+      const shifted = document.createElement("span");
+      shifted.className = "key-shift-legend";
+      shifted.textContent = shiftedLabels[key];
+      const base = document.createElement("span");
+      base.className = "key-base-legend";
+      base.textContent = keyLabels[key] || key;
+      button.append(shifted, base);
+    } else {
+      button.textContent = keyLabels[key] || key;
+    }
     if (key === "SPACE") button.classList.add("key-space");
+    if (key === "FN") {
+      button.classList.add("key-fn");
+      button.disabled = true;
+      button.title = "Fn is a hardware function key";
+    }
     return button;
   };
-  keyRows.forEach((keys) => {
+  functionKeys.forEach((key, index) => {
+    const button = createKey(key);
+    if ([1, 5, 9, 13].includes(index)) button.classList.add("keyboard-function-gap");
+    if (["PRINTSCREEN", "SCROLLLOCK", "PAUSE"].includes(key))
+      button.classList.add("keyboard-function-special");
+    functionLayout.append(button);
+  });
+  navigationKeys.forEach((key) => navigation.append(createKey(key)));
+  keyRows.forEach((keys, rowIndex) => {
     const row = document.createElement("div");
     row.className = "keyboard-row";
+    row.dataset.row = String(rowIndex);
     keys.forEach((key) => row.append(createKey(key)));
     layout.append(row);
   });
-  [
-    "PRINTSCREEN",
-    "SCROLLLOCK",
-    "PAUSE",
-    "INSERT",
-    "DELETE",
-    "HOME",
-    "END",
-    "PAGEUP",
-    "PAGEDOWN",
-  ].forEach((key) => $("#keyboard-extra-keys").append(createKey(key)));
-  [
+  const numpadKeys = [
     ["NUMLOCK", "NUMDIVIDE", "NUMMULTIPLY", "NUMSUBTRACT"],
     ["NUM7", "NUM8", "NUM9", "NUMADD"],
-    ["NUM4", "NUM5", "NUM6", "NUMENTER"],
+    ["NUM4", "NUM5", "NUM6"],
     ["NUM1", "NUM2", "NUM3", "NUMENTER"],
-    ["NUM0", "NUM0", "NUMDECIMAL", "NUMENTER"],
-  ].forEach((keys) => {
-    const row = document.createElement("div");
-    row.className = "numpad-row";
-    keys.forEach((key, index) => {
-      const button = createKey(key);
-      if (key === "NUM0" && index < 2) button.classList.add("numpad-zero");
-      row.append(button);
-    });
-    numpad.append(row);
-  });
-  numpad.querySelectorAll('[data-key="NUM0"]')[1]?.remove();
+    ["NUM0", "NUMDECIMAL"],
+  ];
+  numpadKeys.forEach((keys) => keys.forEach((key) => {
+    const button = createKey(key);
+    if (key === "NUMADD") button.classList.add("numpad-add");
+    if (key === "NUMENTER") button.classList.add("numpad-enter");
+    if (key === "NUM0") button.classList.add("numpad-zero");
+    numpad.append(button);
+  }));
   document.querySelectorAll(".keyboard-key").forEach((button) =>
     button.addEventListener("click", () => {
       const key = button.dataset.key;
@@ -446,14 +498,11 @@ function buildKeyboard() {
         const name = key.toLowerCase();
         if (activeModifiers.has(name)) activeModifiers.delete(name);
         else activeModifiers.add(name);
-        document
-          .querySelector(`[data-modifier="${name}"]`)
-          .classList.toggle("active", activeModifiers.has(name));
-        document
-          .querySelectorAll(`[data-key="${key}"]`)
-          .forEach((el) =>
-            el.classList.toggle("active", activeModifiers.has(name)),
-          );
+        document.querySelectorAll("[data-modifier=\"" + name + "\"]")
+          .forEach((el) => el.classList.toggle("active", activeModifiers.has(name)));
+        document.querySelectorAll("[data-key=\"" + key + "\"]")
+          .forEach((el) => el.classList.toggle("active", activeModifiers.has(name)));
+        refreshShiftLabels();
         return;
       }
       command("keyboardPress", {
@@ -465,6 +514,8 @@ function buildKeyboard() {
           win: activeModifiers.has("win"),
         },
       });
+      if (["CAPSLOCK", "NUMLOCK", "SCROLLLOCK"].includes(key))
+        setTimeout(refresh, 150);
     }),
   );
   document.querySelectorAll("[data-modifier]").forEach((button) =>
@@ -473,29 +524,45 @@ function buildKeyboard() {
       if (activeModifiers.has(name)) activeModifiers.delete(name);
       else activeModifiers.add(name);
       button.classList.toggle("active", activeModifiers.has(name));
-      document
-        .querySelectorAll(`[data-key="${name.toUpperCase()}"]`)
-        .forEach((el) =>
-          el.classList.toggle("active", activeModifiers.has(name)),
-        );
+      document.querySelectorAll("[data-key=\"" + name.toUpperCase() + "\"]")
+        .forEach((el) => el.classList.toggle("active", activeModifiers.has(name)));
+      refreshShiftLabels();
     }),
   );
-  const toggleNumpad = (show) => {
-    $("#numpad-panel").classList.toggle("hidden", !show);
-    $("#numpad-toggle").setAttribute("aria-expanded", String(show));
-    $("#numpad-toggle").title = show
-      ? "Hide numeric keypad"
-      : "Show numeric keypad";
-    $("#numpad-toggle").innerHTML = show
-      ? "× <span>Hide numpad</span>"
-      : "▦ <span>Numpad</span>";
-  };
-  $("#numpad-toggle").addEventListener("click", () =>
-    toggleNumpad($("#numpad-panel").classList.contains("hidden")),
-  );
-  $("#numpad-hide").addEventListener("click", () => toggleNumpad(false));
+  refreshShiftLabels();
+}
+function refreshShiftLabels() {
+  const shifted = activeModifiers.has("shift");
+  document.querySelectorAll(".keyboard-key.key-has-legends").forEach((button) => {
+    button.classList.toggle("shift-active", shifted);
+  });
 }
 buildKeyboard();
+function addMouseKeyboardShortcuts() {
+  document
+    .querySelectorAll('[data-page-panel]:not([data-page-panel="home"]):not([data-page-panel="mouse"]):not([data-page-panel="keyboard"])')
+    .forEach((panel) => {
+      const heading = panel.querySelector(".section-head");
+      if (!heading) return;
+      const shortcuts = document.createElement("div");
+      shortcuts.className = "page-jumps";
+      for (const [page, icon, label] of [
+        ["mouse", "⌖", "Mouse controls"],
+        ["keyboard", "⌨", "Keyboard controls"],
+      ]) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "icon-button page-jump";
+        button.dataset.goPage = page;
+        button.title = label;
+        button.setAttribute("aria-label", label);
+        button.textContent = icon;
+        shortcuts.append(button);
+      }
+      heading.append(shortcuts);
+    });
+}
+addMouseKeyboardShortcuts();
 async function mouseCommand(action, extra = {}) {
   try {
     await request("/api/control", {
@@ -503,35 +570,26 @@ async function mouseCommand(action, extra = {}) {
       body: JSON.stringify({ action, ...extra }),
     });
     if (action === "mouseLeftDown" || action === "mouseLeftUp") await refresh();
-    else
-      notify(
-        action
-          .replace("mouse", "")
-          .replace(/([A-Z])/g, " $1")
-          .toLowerCase(),
-      );
   } catch (e) {
     notify(e.message);
   }
 }
 async function playerCommand(action, path = "") {
   try {
+    if (action === "closePlayer") {
+      const latest = await request("/api/state");
+      paint(latest);
+      if (!(latest.running || []).includes(selected)) {
+        notify(formatPlayer(selected) + " is not running.");
+        return;
+      }
+    }
     await request("/api/control", {
       method: "POST",
       body: JSON.stringify({ action, player: selected, path }),
     });
-    notify(
-      action === "openFile"
-        ? "Opening file in " + formatPlayer(selected)
-        : action === "openDefaultFile"
-          ? "Opening in the Windows default app"
-          : action === "openPlayer"
-            ? "Opening " + formatPlayer(selected)
-            : action === "closePlayer"
-              ? "Closing " + formatPlayer(selected)
-              : "Opened folder in Windows Explorer",
-    );
     if (action === "openDefaultFile") showPage("window");
+    if (action === "openFolder" && window.matchMedia("(max-width: 620px)").matches) setFilesFolded(true);
     if (
       action === "openPlayer" ||
       action === "closePlayer" ||
@@ -555,7 +613,7 @@ async function loadFiles(path = currentFolder) {
     const q = path ? "?path=" + encodeURIComponent(path) : "";
     const data = await request("/api/files" + q);
     currentFolder = data.path || "";
-    $("#file-location").textContent = currentFolder || "This PC";
+    renderBreadcrumbs(currentFolder);
     $("#file-up").disabled = !data.parent;
     $("#file-open-explorer").disabled = !currentFolder;
     list.replaceChildren();
@@ -616,6 +674,49 @@ async function loadFiles(path = currentFolder) {
     );
   }
 }
+function renderBreadcrumbs(path) {
+  const host = $("#file-breadcrumbs");
+  host.replaceChildren();
+  if (!path) {
+    host.textContent = "Drives";
+    return;
+  }
+  const parts = path.split(/[\\/]+/).filter(Boolean);
+  let partial = parts[0] + "\\";
+  const addCrumb = (label, target, isLast) => {
+    if (isLast) {
+      const current = document.createElement("span");
+      current.className = "breadcrumb-current";
+      current.textContent = label;
+      host.append(current);
+      return;
+    }
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "breadcrumb-link";
+    button.textContent = label;
+    button.addEventListener("click", () => loadFiles(target));
+    host.append(
+      button,
+      Object.assign(document.createElement("span"), {
+        className: "breadcrumb-separator",
+        textContent: "›",
+      }),
+    );
+  };
+  addCrumb(parts[0], partial, parts.length === 1);
+  for (let i = 1; i < parts.length; i++) {
+    partial += parts[i] + (i < parts.length - 1 ? "\\" : "");
+    addCrumb(parts[i], partial, i === parts.length - 1);
+  }
+}
+function setFilesFolded(folded) {
+  $(".file-card").classList.toggle("explorer-controls-only", folded);
+  const toggle = $("#file-browser-toggle");
+  toggle.textContent = folded ? "▤" : "⌃";
+  toggle.title = folded ? "Show file browser" : "Hide file browser";
+  toggle.setAttribute("aria-label", toggle.title);
+}
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes)) return "";
   if (bytes < 1024) return bytes + " B";
@@ -639,8 +740,21 @@ $("#pair-form").addEventListener("submit", pair);
 $("#unpair").addEventListener("click", () => disconnect());
 $("#refresh").addEventListener("click", refresh);
 document
-  .querySelectorAll(".page-tab")
-  .forEach((b) => b.addEventListener("click", () => showPage(b.dataset.page)));
+  .querySelectorAll("[data-go-page]")
+  .forEach((b) =>
+    b.addEventListener("click", () => showPage(b.dataset.goPage)),
+  );
+$("#home-link").addEventListener("click", (e) => {
+  e.preventDefault();
+  showPage("home");
+});
+$("#player-fold-toggle").addEventListener("click", () => {
+  const expanded =
+    $("#player-fold-toggle").getAttribute("aria-expanded") !== "true";
+  $("#player-fold-toggle").setAttribute("aria-expanded", String(expanded));
+  $("#player-picker").classList.toggle("hidden", !expanded);
+  $("#player-fold-icon").textContent = expanded ? "⌃" : "⌄";
+});
 showPage(currentPage);
 $("#browser-select").value = selectedBrowser;
 $("#browser-select").addEventListener("change", (e) => {
@@ -678,18 +792,19 @@ $("#theme-toggle").addEventListener("click", () =>
   setTheme(colorTheme === "dark" ? "light" : "dark"),
 );
 document
-  .querySelectorAll("[data-mouse-action]:not(#mouse-drag-toggle)")
+  .querySelectorAll("[data-mouse-action]")
   .forEach((b) =>
     b.addEventListener("click", () => mouseCommand(b.dataset.mouseAction)),
   );
-$("#mouse-drag-toggle").addEventListener("click", () =>
-  mouseCommand(state?.mouseDragging ? "mouseLeftUp" : "mouseLeftDown"),
-);
 let padActive = false,
   lastPadPoint = null,
   gesture = null,
   pendingMouse = { dx: 0, dy: 0 },
-  mouseMoveTimer = null;
+  mouseMoveTimer = null,
+  padDown = null,
+  longPressTimer = null,
+  pendingTapTimer = null,
+  pendingTap = false;
 const pad = $("#mouse-pad");
 const padPointers = new Map();
 const touchDistance = (points) =>
@@ -705,12 +820,51 @@ function flushMouseMove() {
   pendingMouse = { dx: 0, dy: 0 };
   if (dx || dy) mouseCommand("mouseMove", { dx, dy });
 }
+function clearLongPress() {
+  clearTimeout(longPressTimer);
+  longPressTimer = null;
+}
+function queuePadTap() {
+  if (pendingTap) {
+    clearTimeout(pendingTapTimer);
+    pendingTap = false;
+    mouseCommand("mouseDoubleClick");
+    return;
+  }
+  pendingTap = true;
+  pendingTapTimer = setTimeout(() => {
+    pendingTap = false;
+    mouseCommand("mouseLeftClick");
+  }, 260);
+}
 pad.addEventListener("pointerdown", (e) => {
   padActive = true;
   padPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   lastPadPoint = { x: e.clientX, y: e.clientY };
   pad.setPointerCapture(e.pointerId);
-  if (padPointers.size === 2) {
+  if (padPointers.size === 1) {
+    padDown = {
+      pointerId: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      moved: false,
+      longPressed: false,
+    };
+    longPressTimer = setTimeout(() => {
+      if (padDown?.pointerId !== e.pointerId || padDown.moved || padPointers.size !== 1) return;
+      padDown.longPressed = true;
+      padDown.moved = true;
+      pendingTap = false;
+      clearTimeout(pendingTapTimer);
+      mouseCommand("mouseRightClick");
+    }, 550);
+  } else if (padPointers.size === 2) {
+    clearLongPress();
+    padDown = null;
+    if (pendingTap) {
+      clearTimeout(pendingTapTimer);
+      pendingTap = false;
+    }
     const points = [...padPointers.values()];
     gesture = {
       startDistance: touchDistance(points),
@@ -739,7 +893,6 @@ pad.addEventListener("pointermove", (e) => {
         key: distanceChange > 0 ? "EQUALS" : "MINUS",
         modifiers: { ctrl: true, shift: distanceChange > 0 },
       });
-      notify(distanceChange > 0 ? "Zoom in" : "Zoom out");
     } else if (
       gesture.mode === "pending" &&
       Math.abs(center.y - gesture.startCenter.y) > 26 &&
@@ -751,7 +904,7 @@ pad.addEventListener("pointermove", (e) => {
     if (gesture.mode === "scroll") {
       const deltaY = center.y - gesture.lastCenter.y;
       if (Math.abs(deltaY) >= 35) {
-        const action = deltaY < 0 ? "mouseScrollUp" : "mouseScrollDown";
+        const action = deltaY < 0 ? "mouseScrollDown" : "mouseScrollUp";
         request("/api/control", {
           method: "POST",
           body: JSON.stringify({ action }),
@@ -763,16 +916,27 @@ pad.addEventListener("pointermove", (e) => {
     return;
   }
   if (!lastPadPoint) return;
-  pendingMouse.dx += Math.round((e.clientX - lastPadPoint.x) * 2.2);
-  pendingMouse.dy += Math.round((e.clientY - lastPadPoint.y) * 2.2);
+  const dx = e.clientX - lastPadPoint.x;
+  const dy = e.clientY - lastPadPoint.y;
+  if (padDown?.pointerId === e.pointerId &&
+      Math.hypot(e.clientX - padDown.x, e.clientY - padDown.y) > 12) {
+    padDown.moved = true;
+    clearLongPress();
+  }
+  pendingMouse.dx += Math.round(dx * 2.2);
+  pendingMouse.dy += Math.round(dy * 2.2);
   lastPadPoint = { x: e.clientX, y: e.clientY };
   if (!mouseMoveTimer) mouseMoveTimer = setTimeout(flushMouseMove, 75);
   e.preventDefault();
 });
-const endPad = (e) => {
+function endPad(e, cancelled = false) {
+  if (padDown?.pointerId === e.pointerId) {
+    clearLongPress();
+    if (!cancelled && !padDown.moved && !padDown.longPressed) queuePadTap();
+    padDown = null;
+  }
   padPointers.delete(e.pointerId);
-  if (pad.hasPointerCapture(e.pointerId))
-    pad.releasePointerCapture(e.pointerId);
+  if (pad.hasPointerCapture(e.pointerId)) pad.releasePointerCapture(e.pointerId);
   if (padPointers.size === 1) {
     lastPadPoint = [...padPointers.values()][0];
     gesture = null;
@@ -781,9 +945,9 @@ const endPad = (e) => {
     lastPadPoint = null;
     gesture = null;
   }
-};
-pad.addEventListener("pointerup", endPad);
-pad.addEventListener("pointercancel", endPad);
+}
+pad.addEventListener("pointerup", (e) => endPad(e));
+pad.addEventListener("pointercancel", (e) => endPad(e, true));
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) mouseCommand("mouseLeftUp");
 });
@@ -870,6 +1034,10 @@ $("#file-up").addEventListener("click", async () => {
   }
 });
 $("#files-refresh").addEventListener("click", () => loadFiles());
+$("#file-browser-toggle").addEventListener("click", () =>
+  setFilesFolded(!$(".file-card").classList.contains("explorer-controls-only")),
+);
+$("#file-home").addEventListener("click", () => loadFiles(""));
 $("#file-open-explorer").addEventListener(
   "click",
   () => currentFolder && playerCommand("openFolder", currentFolder),

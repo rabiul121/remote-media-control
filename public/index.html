@@ -13,7 +13,11 @@
   <body>
     <main class="shell">
       <header class="topbar">
-        <a class="brand" href="/"
+        <a
+          class="brand"
+          href="#home"
+          id="home-link"
+          aria-label="RemoteDeck home"
           ><span class="brand-mark"
             ><svg viewBox="0 0 24 24">
               <path
@@ -76,22 +80,36 @@
         </div>
       </section>
       <section id="remote-view" class="remote-view hidden">
-        <div class="welcome">
-          <div>
-            <div class="eyebrow">NOW IN CONTROL</div>
-            <h1>Make it <em>play.</em></h1>
+        <div class="page-panel home-panel active" data-page-panel="home">
+          <div class="welcome">
+            <div>
+              <div class="eyebrow">REMOTE CONTROL CENTER</div>
+              <h1>Make it <em>play.</em></h1>
+            </div>
+            <div class="live-pill"><i></i> CONNECTED</div>
           </div>
-          <div class="live-pill"><i></i> CONNECTED</div>
+          <div class="home-grid" aria-label="RemoteDeck sections">
+            <button class="home-tile" data-go-page="playback">
+              <span class="home-tile-icon">▶</span><span>Playback</span>
+            </button>
+            <button class="home-tile" data-go-page="files">
+              <span class="home-tile-icon">▤</span><span>Files</span>
+            </button>
+            <button class="home-tile" data-go-page="browser">
+              <span class="home-tile-icon">◎</span><span>Browser</span>
+            </button>
+            <button class="home-tile" data-go-page="window">
+              <span class="home-tile-icon">▣</span><span>Window</span>
+            </button>
+            <button class="home-tile" data-go-page="mouse">
+              <span class="home-tile-icon">⌖</span><span>Mouse</span>
+            </button>
+            <button class="home-tile" data-go-page="keyboard">
+              <span class="home-tile-icon">⌨</span><span>Keyboard</span>
+            </button>
+          </div>
         </div>
-        <nav class="page-tabs" id="page-tabs" aria-label="Remote sections">
-          <button class="page-tab active" data-page="playback">Playback</button
-          ><button class="page-tab" data-page="files">Files</button
-          ><button class="page-tab" data-page="browser">Browser</button
-          ><button class="page-tab" data-page="window">Window</button
-          ><button class="page-tab" data-page="mouse">Mouse</button
-          ><button class="page-tab" data-page="keyboard">Keyboard</button>
-        </nav>
-        <div class="page-panel active" data-page-panel="playback">
+        <div class="page-panel" data-page-panel="playback">
           <section class="card player-card">
             <div class="section-head">
               <div>
@@ -107,48 +125,67 @@
                 ↻
               </button>
             </div>
-            <div class="player-options" id="players">
-              <button class="player-option" data-player="vlc">
-                <span class="player-icon vlc">V</span><span>VLC</span
-                ><span class="player-state">CHECKING</span>
-              </button>
-              <button class="player-option" data-player="musicbee">
-                <span class="player-icon bee">♪</span><span>MusicBee</span
-                ><span class="player-state">CHECKING</span>
-              </button>
-              <button class="player-option" data-player="potplayer">
-                <span class="player-icon pot">▶</span><span>PotPlayer</span
-                ><span class="player-state">CHECKING</span>
-              </button>
-              <button class="player-option" data-player="mpc-hc64">
-                <span class="player-icon mpc">M</span><span>MPC-HC</span
-                ><span class="player-state">CHECKING</span>
-              </button>
+            <button
+              id="player-fold-toggle"
+              class="player-fold-toggle"
+              aria-expanded="true"
+              aria-controls="player-picker"
+            >
+              <span id="player-selection-label">Choose player</span
+              ><span id="player-fold-icon">⌃</span>
+            </button>
+            <div id="player-picker" class="player-picker">
+              <div class="player-options" id="players">
+                <button class="player-option" data-player="vlc">
+                  <span class="player-icon vlc">V</span><span>VLC</span
+                  ><span class="player-state">CHECKING</span>
+                </button>
+                <button class="player-option" data-player="musicbee">
+                  <span class="player-icon bee">♪</span><span>MusicBee</span
+                  ><span class="player-state">CHECKING</span>
+                </button>
+                <button class="player-option" data-player="potplayer">
+                  <span class="player-icon pot">▶</span><span>PotPlayer</span
+                  ><span class="player-state">CHECKING</span>
+                </button>
+                <button class="player-option" data-player="mpc-hc64">
+                  <span class="player-icon mpc">K</span><span>K-Lite Codec</span
+                  ><span class="player-state">CHECKING</span>
+                </button>
+              </div>
             </div>
             <div class="player-actions">
-              <button id="player-open" class="action-button">
-                ↗ <span class="player-action-label">Open player</span></button
-              ><button id="player-close" class="action-button">
-                × <span class="player-action-label">Close player</span></button
-              ><button
-                id="player-fullscreen"
-                class="action-button"
-                data-action="toggleFullscreen"
-              >
-                ⛶ <span>Full screen</span>
-              </button>
-            </div>
-            <div id="selected-hint" class="microcopy">
-              Select a player to send seek commands and adjust its app volume.
-            </div>
+                <button
+                  id="player-open"
+                  class="action-button player-icon-action"
+                  title="Open player"
+                  aria-label="Open player"
+                >
+                  ↗</button
+                ><button
+                  id="player-close"
+                  class="action-button player-icon-action"
+                  title="Close player"
+                  aria-label="Close player"
+                >
+                  ×</button
+                ><button
+                  id="player-fullscreen"
+                  class="action-button player-icon-action"
+                  data-action="toggleFullscreen"
+                  title="Toggle full screen"
+                  aria-label="Toggle full screen"
+                >
+                  ⛶
+                </button>
+              </div>
           </section>
           <section class="card transport-card">
             <div class="section-head">
               <div>
                 <div class="eyebrow">PLAYBACK</div>
-                <h2>At your fingertips</h2>
+                <h2>Playback controls</h2>
               </div>
-              <span class="key-hint">MEDIA KEYS</span>
             </div>
             <div class="transport">
               <button
@@ -203,12 +240,6 @@
                 +5 sec
               </button>
             </div>
-            <div class="transport-caption">
-              Previous <span>PLAY / PAUSE</span> Next
-            </div>
-            <div id="transport-hint" class="microcopy centered">
-              Playback keys control the current Windows media session.
-            </div>
           </section>
           <section class="volume-grid">
             <div class="card volume-card">
@@ -249,9 +280,6 @@
                   +5</button
                 ><output id="system-value">50</output
                 ><span class="percent">%</span>
-              </div>
-              <div class="range-labels">
-                <span>QUIET</span><span>LOUD</span>
               </div>
             </div>
             <div class="card volume-card">
@@ -294,13 +322,6 @@
                 ><output id="player-value">—</output
                 ><span class="percent">%</span>
               </div>
-              <div class="range-labels">
-                <span>QUIET</span><span>LOUD</span>
-              </div>
-              <div id="player-volume-hint" class="microcopy">
-                Choose a running player to control its mixer level.
-              </div>
-            </div>
           </section>
         </div>
         <div class="page-panel" data-page-panel="files">
@@ -320,22 +341,39 @@
               </button>
             </div>
             <div class="file-toolbar">
-              <button id="file-up" class="action-button" disabled>
-                ↑ <span>Up</span>
+              <button id="file-browser-toggle" class="action-button file-toolbar-icon file-browser-toggle" title="Hide file browser" aria-label="Hide file browser">⌃</button>
+              <button
+                id="file-home"
+                class="action-button file-toolbar-icon"
+                title="Show drives"
+                aria-label="Show drives"
+              >
+                ⌂
               </button>
-              <div id="file-location">Choose a drive to browse</div>
-              <button id="file-open-explorer" class="action-button" disabled>
-                ▣ <span>Explorer</span>
+              <button
+                id="file-up"
+                class="action-button file-toolbar-icon"
+                title="Go up one folder"
+                aria-label="Go up one folder"
+                disabled
+              >
+                ↑
+              </button>
+              <div id="file-breadcrumbs" aria-label="Current folder path"></div>
+              <button
+                id="file-open-explorer"
+                class="action-button file-toolbar-icon"
+                title="Open in Windows Explorer"
+                aria-label="Open in Windows Explorer"
+                disabled
+              >
+                ▣
               </button>
             </div>
             <div id="file-list" class="file-list">
               <div class="file-empty">Loading drives…</div>
             </div>
             <div class="explorer-remote" id="explorer-remote">
-              <div class="explorer-help">
-                Open a folder with Explorer above, then use these keys in that
-                window.
-              </div>
               <div class="explorer-arrows" aria-label="Explorer arrow keys">
                 <button
                   class="action-button"
@@ -378,10 +416,6 @@
                   × Close Explorer
                 </button>
               </div>
-            </div>
-            <div id="file-hint" class="microcopy">
-              Audio and video open in the selected player. Other files open in
-              their Windows default app.
             </div>
           </section>
         </div>
@@ -465,8 +499,10 @@
                 ⛶ <span>Fullscreen</span></button
               ><button class="action-button" data-action="browserRestore">
                 ▣ <span>Restore</span></button
+              ><button class="action-button" data-action="browserCloseTab">
+                × <span>Close tab</span></button
               ><button class="action-button" data-action="browserClose">
-                × <span>Close</span>
+                × <span>Close browser</span>
               </button>
             </div>
             <div class="browser-keys" aria-label="Browser keyboard controls">
@@ -493,10 +529,6 @@
                 Esc
               </button>
             </div>
-            <div id="browser-hint" class="microcopy">
-              Choose a browser and open it or tap a site shortcut. Browser
-              controls target the last browser opened here.
-            </div>
           </section>
         </div>
         <div class="page-panel" data-page-panel="window">
@@ -507,48 +539,23 @@
                 <h2>App window controls</h2>
               </div>
             </div>
-            <div id="window-control-hint" class="microcopy">
-              Open an image, document, or PDF from Files to control its default
-              app here.
-            </div>
             <div
-              class="default-file-actions"
+              class="default-file-actions window-control-grid"
               id="default-file-actions"
               aria-label="Default app controls"
             >
-              <button class="action-button" data-action="defaultScrollUp">
-                ↑ <span>Scroll up</span></button
-              ><button class="action-button" data-action="defaultScrollDown">
-                ↓ <span>Scroll down</span>
-              </button>
-              <button class="action-button" data-action="defaultPrevious">
-                ← <span>Previous</span></button
-              ><button class="action-button" data-action="defaultNext">
-                → <span>Next</span>
-              </button>
-              <button class="action-button" data-action="defaultArrowLeft">
-                ← <span>Left</span></button
-              ><button class="action-button" data-action="defaultArrowRight">
-                → <span>Right</span>
-              </button>
-              <button class="action-button" data-action="defaultArrowUp">
-                ↑ <span>Up</span></button
-              ><button class="action-button" data-action="defaultArrowDown">
-                ↓ <span>Down</span>
-              </button>
-              <button class="action-button" data-action="defaultMinimize">
-                _ <span>Minimize</span></button
-              ><button class="action-button" data-action="defaultMaximize">
-                □ <span>Maximize</span>
-              </button>
-              <button class="action-button" data-action="defaultFullscreen">
-                ⛶ <span>Full screen</span></button
-              ><button class="action-button" data-action="defaultRestore">
-                ▣ <span>Restore</span>
-              </button>
-              <button class="action-button" data-action="defaultClose">
-                × <span>Close app</span>
-              </button>
+              <button class="action-button window-control-button pgup" data-action="defaultScrollUp"><span class="window-control-icon" aria-hidden="true">⇞</span><span>PgUp</span></button>
+              <button class="action-button window-control-button close-app" data-action="defaultClose"><span class="window-control-icon" aria-hidden="true">×</span><span>Close App</span></button>
+              <button class="action-button window-control-button pgdown" data-action="defaultScrollDown"><span class="window-control-icon" aria-hidden="true">⇟</span><span>PgDown</span></button>
+              <button class="action-button window-control-button arrow-left" data-action="defaultArrowLeft" aria-label="Left"><span class="window-control-icon" aria-hidden="true">←</span></button>
+              <button class="action-button window-control-button arrow-up" data-action="defaultArrowUp" aria-label="Up"><span class="window-control-icon" aria-hidden="true">↑</span></button>
+              <button class="action-button window-control-button arrow-right" data-action="defaultArrowRight" aria-label="Right"><span class="window-control-icon" aria-hidden="true">→</span></button>
+              <button class="action-button window-control-button home-key" data-action="defaultHome"><span class="window-control-icon" aria-hidden="true">⌂</span><span>Home</span></button>
+              <button class="action-button window-control-button arrow-down" data-action="defaultArrowDown" aria-label="Down"><span class="window-control-icon" aria-hidden="true">↓</span></button>
+              <button class="action-button window-control-button end-key" data-action="defaultEnd"><span class="window-control-icon" aria-hidden="true">⇲</span><span>End</span></button>
+              <button class="action-button window-control-button minimize" data-action="defaultMinimize"><span class="window-control-icon" aria-hidden="true">—</span><span>Minimize</span></button>
+              <button class="action-button window-control-button fullscreen" data-action="defaultFullscreen"><span class="window-control-icon" aria-hidden="true">⛶</span><span>Full Screen</span></button>
+              <button class="action-button window-control-button restore" data-action="defaultRestore"><span class="window-control-icon" aria-hidden="true">▣</span><span>Restore</span></button>
             </div>
           </section>
         </div>
@@ -559,63 +566,37 @@
                 <div class="eyebrow">POINTER REMOTE</div>
                 <h2>Mouse control</h2>
               </div>
+              <button class="icon-button page-jump" data-go-page="keyboard" title="Open keyboard controls" aria-label="Open keyboard controls">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M6 9h.01M9 9h.01M12 9h.01M15 9h.01M18 9h.01M6 12h.01M9 12h.01M12 12h.01M15 12h.01M18 12h.01M7 15h10"/></svg>
+              </button>
             </div>
-            <p class="microcopy mouse-hint">
-              Drag inside the pad to move the Windows cursor. Use the buttons
-              for clicks, selection, and scrolling.
-            </p>
             <div
               id="mouse-pad"
               class="mouse-pad"
               role="application"
-              aria-label="Touchpad area for moving the Windows pointer"
+              aria-label="Touchpad: move the pointer, tap to click, double tap to double click, hold to right click"
             >
-              <span class="mouse-pad-icon">⌖</span
-              ><span>Touch and drag to move</span>
+              <span class="mouse-pad-icon">⌖</span>
+              <span class="mouse-pad-label">Touchpad</span>
             </div>
             <p class="microcopy gesture-hint">
-              Two fingers: slide up or down to scroll. Pinch out to zoom in;
-              pinch in to zoom out.
+              Tap: click · Double tap: double click · Hold: right click. Two fingers: scroll / zoom.
             </p>
             <div class="mouse-buttons">
-              <button class="action-button" data-mouse-action="mouseLeftClick">
-                ◉ <span>Left click</span></button
-              ><button
-                class="action-button"
-                data-mouse-action="mouseRightClick"
+              <button
+                class="action-button mouse-scroll-button"
+                data-mouse-action="mouseScrollUp"
+                aria-label="Scroll up"
               >
-                ▣ <span>Right click</span></button
-              ><button
-                class="action-button"
-                data-mouse-action="mouseDoubleClick"
-              >
-                ◉◉ <span>Double click</span></button
-              ><button
-                class="action-button"
-                data-mouse-action="mouseMiddleClick"
-              >
-                ⊙ <span>Middle click</span>
+                ↑ <span>Scroll up</span>
               </button>
               <button
-                id="mouse-drag-toggle"
-                class="action-button"
-                data-mouse-action="mouseLeftDown"
-              >
-                ↗ <span>Start selection</span></button
-              ><button class="action-button" data-mouse-action="mouseScrollUp">
-                ↑ <span>Scroll up</span></button
-              ><button
-                class="action-button"
+                class="action-button mouse-scroll-button"
                 data-mouse-action="mouseScrollDown"
+                aria-label="Scroll down"
               >
-                ↓ <span>Scroll down</span></button
-              ><button class="action-button" data-mouse-action="mouseLeftUp">
-                ✓ <span>Release</span>
+                ↓ <span>Scroll down</span>
               </button>
-            </div>
-            <div id="mouse-hint" class="microcopy">
-              Start selection, then drag on the pad to select text or items.
-              Release when finished.
             </div>
           </section>
         </div>
@@ -623,14 +604,13 @@
           <section class="card keyboard-card">
             <div class="section-head">
               <div>
-                <div class="eyebrow">WINDOWS INPUT</div>
-                <h2>Full keyboard</h2>
+                <div class="eyebrow">WINDOWS INPUT · 104 KEYS</div>
+                <h2>Full-size keyboard</h2>
               </div>
+              <button class="icon-button page-jump" data-go-page="mouse" title="Open mouse controls" aria-label="Open mouse controls">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="6"/><path d="M12 3v6M12 9h.01"/></svg>
+              </button>
             </div>
-            <p class="microcopy">
-              Keys go to the active Windows window. Turn on modifiers, then tap
-              a key for shortcuts such as Ctrl+C or Alt+F4.
-            </p>
             <div class="keyboard-tools">
               <div class="keyboard-modifiers" aria-label="Keyboard modifiers">
                 <button
@@ -658,76 +638,30 @@
                   Win
                 </button>
               </div>
-              <button
-                id="numpad-toggle"
-                class="action-button numpad-toggle"
-                aria-expanded="false"
-                aria-controls="numpad-panel"
-                title="Show numeric keypad"
-              >
-                ▦ <span>Numpad</span>
-              </button>
             </div>
-            <div class="keyboard-stage">
-              <div
-                id="keyboard-layout"
-                class="keyboard-layout"
-                aria-label="On-screen keyboard"
-              ></div>
-              <div
-                id="keyboard-extra-keys"
-                class="keyboard-extra-keys"
-                aria-label="Navigation and editing keys"
-              ></div>
-              <div
-                id="numpad-panel"
-                class="numpad-panel hidden"
-                aria-label="Numeric keypad"
-              >
-                <div class="numpad-panel-head">
-                  <strong>Numeric keypad</strong
-                  ><button
-                    id="numpad-hide"
-                    class="icon-button"
-                    aria-label="Hide numeric keypad"
-                    title="Hide numeric keypad"
-                  >
-                    ×
-                  </button>
+            <div class="keyboard-scroll">
+              <div class="keyboard-full-layout">
+                <div class="keyboard-main">
+                  <div id="keyboard-function-keys" class="keyboard-function-keys" aria-label="Function keys"></div>
+                  <div id="keyboard-layout" class="keyboard-layout" aria-label="Main keyboard"></div>
                 </div>
-                <div id="numpad-layout" class="numpad-layout"></div>
-              </div>
-            </div>
-            <div class="keyboard-arrows" aria-label="Arrow keys">
-              <button
-                class="action-button keyboard-key"
-                data-key="UP"
-                aria-label="Up arrow"
-              >
-                ↑
-              </button>
-              <div>
-                <button
-                  class="action-button keyboard-key"
-                  data-key="LEFT"
-                  aria-label="Left arrow"
-                >
-                  ←
-                </button>
-                <button
-                  class="action-button keyboard-key"
-                  data-key="DOWN"
-                  aria-label="Down arrow"
-                >
-                  ↓
-                </button>
-                <button
-                  class="action-button keyboard-key"
-                  data-key="RIGHT"
-                  aria-label="Right arrow"
-                >
-                  →
-                </button>
+                <div class="keyboard-navigation-block">
+                  <div id="keyboard-extra-keys" class="keyboard-navigation" aria-label="Navigation keys"></div>
+                  <div class="keyboard-arrows" aria-label="Arrow keys">
+                    <button class="action-button keyboard-key" data-key="UP" aria-label="Up arrow">↑</button>
+                    <button class="action-button keyboard-key" data-key="LEFT" aria-label="Left arrow">←</button>
+                    <button class="action-button keyboard-key" data-key="DOWN" aria-label="Down arrow">↓</button>
+                    <button class="action-button keyboard-key" data-key="RIGHT" aria-label="Right arrow">→</button>
+                  </div>
+                </div>
+                <div class="numpad-block">
+                  <div class="keyboard-lock-indicators" aria-label="Keyboard lock indicators">
+                    <div id="lock-num" class="lock-indicator" aria-label="Num Lock off"><i></i><span>Num<br />Lock</span></div>
+                    <div id="lock-caps" class="lock-indicator" aria-label="Caps Lock off"><i></i><span>Caps<br />Lock</span></div>
+                    <div id="lock-scroll" class="lock-indicator" aria-label="Scroll Lock off"><i></i><span>Scroll<br />Lock</span></div>
+                  </div>
+                  <div id="numpad-layout" class="numpad-layout" aria-label="Numeric keypad"></div>
+                </div>
               </div>
             </div>
           </section>

@@ -11,7 +11,6 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.webkit.SslErrorHandler;
-import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -23,7 +22,6 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.journeyapps.barcodescanner.ScanContract;
 import com.journeyapps.barcodescanner.ScanOptions;
@@ -142,14 +140,14 @@ public class MainActivity extends ComponentActivity {
         TextView name=text("REMOTE / DECK",12,LIME,true);name.setLetterSpacing(.08f);bar.addView(name,new LinearLayout.LayoutParams(0,dp(52),1));
         TextView change=text("CHANGE PC",10,MUTED,true);change.setPadding(dp(12),dp(12),dp(5),dp(12));change.setOnClickListener(v->{if(web!=null){web.stopLoading();web.destroy();web=null;}showConnect();});bar.addView(change);root.addView(bar,params(-1,dp(52)));
         webFrame=new FrameLayout(this);root.addView(webFrame,new LinearLayout.LayoutParams(-1,0,1));
-        web=new WebView(this);web.setBackgroundColor(BG);WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setDatabaseEnabled(true);settings.setLoadsImagesAutomatically(true);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        web=new WebView(this);web.setBackgroundColor(BG);WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setLoadsImagesAutomatically(true);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         web.setWebViewClient(new WebViewClient(){
             @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap favicon){loadFailed=false;showWait("Connecting…","Reaching "+connectedUrl);}
             @Override public void onPageFinished(WebView view,String url){if(!loadFailed&&waitCard!=null)waitCard.setVisibility(View.GONE);}
             @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame()){loadFailed=true;showWait("Could not reach your PC","Check that the phone and PC are on the same Wi-Fi. Use the Wi-Fi IP and port shown in the Windows tray, and allow the listener through Windows Firewall.");}}
             @Override public void onReceivedHttpError(WebView view,WebResourceRequest request,android.webkit.WebResourceResponse response){if(request.isForMainFrame()&&response.getStatusCode()>=400){loadFailed=true;showWait("Windows returned an error","The listener responded with error "+response.getStatusCode()+". Try again or change the PC address.");}}
             @Override public void onReceivedSslError(WebView view,SslErrorHandler handler,android.net.http.SslError error){handler.cancel();loadFailed=true;showWait("Secure connection failed","Check the PC address and try again.");}
-        });web.setWebChromeClient(new WebChromeClient());webFrame.addView(web,new FrameLayout.LayoutParams(-1,-1));
+        });webFrame.addView(web,new FrameLayout.LayoutParams(-1,-1));
         buildWaitCard();String target=connectedUrl+(token==null?"":"/?pair_token="+Uri.encode(token));web.loadUrl(target);
     }
     private void buildWaitCard(){

@@ -324,7 +324,22 @@ const server = http.createServer(async (req, res) => {
         );
       }
       if (req.method === "GET" && url.pathname === "/api/state") {
-        const state = JSON.parse(await ps("state"));
+        const state = JSON.parse(
+          await ps("state", {
+            targetWindow: defaultWindow,
+            explorerWindow,
+          }),
+        );
+        if (Number.isSafeInteger(state.foregroundWindow) && state.foregroundWindow > 0) {
+          defaultWindow = state.foregroundWindow;
+        } else if (!state.targetWindowExists) {
+          defaultWindow = 0;
+        }
+        if (Number.isSafeInteger(state.foregroundExplorerWindow) && state.foregroundExplorerWindow > 0) {
+          explorerWindow = state.foregroundExplorerWindow;
+        } else if (!state.explorerTargetWindowExists) {
+          explorerWindow = 0;
+        }
         state.explorerReady = !!explorerWindow;
         state.defaultAppReady = !!defaultWindow;
         state.browserReady = !!browserWindow;
@@ -354,6 +369,8 @@ const server = http.createServer(async (req, res) => {
           "defaultArrowDown",
           "defaultArrowLeft",
           "defaultArrowRight",
+          "defaultHome",
+          "defaultEnd",
           "defaultMinimize",
           "defaultMaximize",
           "defaultFullscreen",
@@ -387,6 +404,7 @@ const server = http.createServer(async (req, res) => {
           "browserShiftTab",
           "browserEnter",
           "browserEscape",
+          "browserCloseTab",
           "mouseMove",
           "mouseLeftDown",
           "mouseLeftUp",
