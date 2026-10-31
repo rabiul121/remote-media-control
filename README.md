@@ -52,7 +52,7 @@ The APK is written to `android\app\build\outputs\apk\debug\app-debug.apk`. Andro
 
 ### Mouse and keyboard
 
-- The Mouse page provides touchpad pointer movement. Tap to click, double-tap for a double click, and long-press for right click. Two-finger swipes scroll; pinch gestures zoom.
+- The Mouse page provides touchpad pointer movement. Tap to click, double-tap for a double click, and long-press for right click. Two-finger swipes scroll. Pinch and Zoom buttons send Ctrl+wheel to the foreground app. Home and End send Ctrl+Home and Ctrl+End. Reset reverses the zoom steps RemoteDeck sent to the same foreground window during the current listener session, avoiding app-specific reset shortcuts. Zoom only works in apps that implement Ctrl+wheel zoom; Windows has no universal app-content zoom command.
 - The Keyboard page has a full-size layout with shifted punctuation and live Caps Lock, Num Lock, and Scroll Lock indicators. Swipe over the keyboard to scroll vertically and horizontally on phone displays.
 - Mouse and Keyboard pages link directly to each other. All control sections also provide quick links to them.
 

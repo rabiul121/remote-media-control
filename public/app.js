@@ -804,7 +804,13 @@ let padActive = false,
   padDown = null,
   longPressTimer = null,
   pendingTapTimer = null,
-  pendingTap = false;
+  pendingTap = false,
+  pendingTapPoint = null,
+  suppressNextTapPointerId = null;
+let zoomCommandChain = Promise.resolve();
+function queueMouseAction(action) {
+  zoomCommandChain = zoomCommandChain.then(() => mouseCommand(action));
+}
 const pad = $("#mouse-pad");
 const padPointers = new Map();
 const touchDistance = (points) =>
@@ -824,20 +830,32 @@ function clearLongPress() {
   clearTimeout(longPressTimer);
   longPressTimer = null;
 }
-function queuePadTap() {
+function queuePadTap(point) {
   if (pendingTap) {
     clearTimeout(pendingTapTimer);
     pendingTap = false;
+    pendingTapPoint = null;
     mouseCommand("mouseDoubleClick");
     return;
   }
   pendingTap = true;
+  pendingTapPoint = point;
   pendingTapTimer = setTimeout(() => {
     pendingTap = false;
+    pendingTapPoint = null;
     mouseCommand("mouseLeftClick");
   }, 260);
 }
 pad.addEventListener("pointerdown", (e) => {
+  if (padPointers.size === 0 && pendingTap && pendingTapPoint) {
+    const gap = Math.hypot(e.clientX - pendingTapPoint.x, e.clientY - pendingTapPoint.y);
+    if (gap > 32) {
+      clearTimeout(pendingTapTimer);
+      pendingTap = false;
+      pendingTapPoint = null;
+      suppressNextTapPointerId = e.pointerId;
+    }
+  }
   padActive = true;
   padPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   lastPadPoint = { x: e.clientX, y: e.clientY };
@@ -864,12 +882,14 @@ pad.addEventListener("pointerdown", (e) => {
     if (pendingTap) {
       clearTimeout(pendingTapTimer);
       pendingTap = false;
+      pendingTapPoint = null;
     }
     const points = [...padPointers.values()];
     gesture = {
       startDistance: touchDistance(points),
       startCenter: touchCenter(points),
       lastCenter: touchCenter(points),
+      lastZoomDistance: touchDistance(points),
       mode: "pending",
     };
     lastPadPoint = null;
@@ -886,30 +906,47 @@ pad.addEventListener("pointermove", (e) => {
   if (padPointers.size >= 2 && gesture) {
     const points = [...padPointers.values()].slice(0, 2);
     const center = touchCenter(points);
-    const distanceChange = touchDistance(points) - gesture.startDistance;
-    if (gesture.mode === "pending" && Math.abs(distanceChange) > 26) {
+    const distance = touchDistance(points);
+    const distanceChange = distance - gesture.startDistance;
+    const centerTravel = Math.hypot(
+      center.x - gesture.startCenter.x,
+      center.y - gesture.startCenter.y,
+    );
+    if (
+      gesture.mode === "pending" &&
+      Math.abs(distanceChange) > 18 &&
+      Math.abs(distanceChange) > centerTravel * 0.6
+    ) {
       gesture.mode = "pinch";
-      command("keyboardPress", {
-        key: distanceChange > 0 ? "EQUALS" : "MINUS",
-        modifiers: { ctrl: true, shift: distanceChange > 0 },
-      });
+      gesture.lastZoomDistance = distance;
+      queueMouseAction(distanceChange > 0 ? "mouseGestureZoomIn" : "mouseGestureZoomOut");
     } else if (
       gesture.mode === "pending" &&
-      Math.abs(center.y - gesture.startCenter.y) > 26 &&
+      Math.abs(center.y - gesture.startCenter.y) > 12 &&
       Math.abs(center.y - gesture.startCenter.y) >
         Math.abs(center.x - gesture.startCenter.x)
     ) {
       gesture.mode = "scroll";
     }
+    if (gesture.mode === "pinch") {
+      let steps = 0;
+      while (distance - gesture.lastZoomDistance >= 26 && steps++ < 4) {
+        queueMouseAction("mouseGestureZoomIn");
+        gesture.lastZoomDistance += 26;
+      }
+      steps = 0;
+      while (gesture.lastZoomDistance - distance >= 26 && steps++ < 4) {
+        queueMouseAction("mouseGestureZoomOut");
+        gesture.lastZoomDistance -= 26;
+      }
+    }
     if (gesture.mode === "scroll") {
       const deltaY = center.y - gesture.lastCenter.y;
-      if (Math.abs(deltaY) >= 35) {
+      if (Math.abs(deltaY) >= 18) {
+        const notches = Math.min(4, Math.floor(Math.abs(deltaY) / 18));
         const action = deltaY < 0 ? "mouseScrollDown" : "mouseScrollUp";
-        request("/api/control", {
-          method: "POST",
-          body: JSON.stringify({ action }),
-        }).catch((error) => notify(error.message));
-        gesture.lastCenter = center;
+        for (let i = 0; i < notches; i++) queueMouseAction(action);
+        gesture.lastCenter.y += Math.sign(deltaY) * notches * 18;
       }
     }
     e.preventDefault();
@@ -932,9 +969,11 @@ pad.addEventListener("pointermove", (e) => {
 function endPad(e, cancelled = false) {
   if (padDown?.pointerId === e.pointerId) {
     clearLongPress();
-    if (!cancelled && !padDown.moved && !padDown.longPressed) queuePadTap();
+    if (!cancelled && !padDown.moved && !padDown.longPressed && suppressNextTapPointerId !== e.pointerId)
+      queuePadTap({ x: e.clientX, y: e.clientY });
     padDown = null;
   }
+  if (suppressNextTapPointerId === e.pointerId) suppressNextTapPointerId = null;
   padPointers.delete(e.pointerId);
   if (pad.hasPointerCapture(e.pointerId)) pad.releasePointerCapture(e.pointerId);
   if (padPointers.size === 1) {
