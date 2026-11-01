@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.1
+
+- Browser: a browser that was opened by hand, or that opened behind other windows, is now found by process instead of only by "which window came to the front", so controls no longer report it as not detected. The default browser is named in the list (for example "Default browser (Brave)"), a newly opened browser is brought to the front, and new **Bring to front** and **Address bar** buttons were added.
+- Keyboard: key presses and typed text now use the persistent input worker instead of starting PowerShell for every key, so typing is fast and arrives in order.
+- Keyboard: new phone-keyboard typing box that sends text as you type (Bengali, accents and emoji included, backspace and autocorrect handled, Enter presses Enter).
+- Keyboard: a **Typing into** line shows which window receives the keys.
+- Keyboard: Ctrl, Alt, Shift and Win are now one-shot (double-tap to lock), clearly highlighted, shown in a status line, and clear themselves after 10 seconds. Before, an armed modifier had no visual state and stayed latched, so a stray Alt tap turned Esc into Alt+Esc, which cycles through apps. Any Ctrl/Alt/Shift/Win that is stuck down on the PC is released before the next key.
+- Keyboard: the right-hand "Alt" key now arms Alt instead of sending a lone Alt tap.
+- Keyboard: zoom the layout with −, +, Fit or a two-finger pinch; the size is remembered.
+
 ## 1.2.0
 
 - Mouse page: click-and-drag now works (scroll bars, window edges, text selection). Tap, then touch again and slide or hold; or use the new **Hold & drag** toggle, move the touchpad, and tap the toggle again to release. The button is always released if you leave the page, background the app, or lose the connection for 30 s.

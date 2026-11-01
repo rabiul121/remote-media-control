@@ -75,6 +75,7 @@ let mouseWorker = null,
   mouseSequence = 0;
 const mouseRequests = new Map();
 let browsersCache = null,
+  defaultBrowserCache = "",
   browsersCheckedAt = 0;
 const browserCacheMs = 5 * 60 * 1000;
 const appCacheMs = 5 * 60 * 1000;
@@ -258,7 +259,12 @@ function mouseControl(action, payload = {}) {
       },
     });
     child.stdin.write(
-      JSON.stringify({ id, action, ...payload }) + "\n",
+      // Escape every non-ASCII character: the worker's console input is not
+      // UTF-8, so raw Bengali/emoji text would arrive garbled.
+      JSON.stringify({ id, action, ...payload }).replace(
+        /[\u007f-\uffff]/g,
+        (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"),
+      ) + "\n",
       (error) => {
         if (error && mouseRequests.has(id)) {
           const pending = mouseRequests.get(id);
@@ -519,15 +525,26 @@ async function handleRequest(req, res) {
           await ps("state", {
             targetWindow: defaultWindow,
             explorerWindow,
+            browserWindow,
             detectBrowsers,
           }),
         );
         if (Array.isArray(state.browsers)) {
           browsersCache = state.browsers;
+          if (typeof state.defaultBrowser === "string")
+            defaultBrowserCache = state.defaultBrowser;
           browsersCheckedAt = Date.now();
         } else {
           state.browsers = browsersCache || ["default"];
         }
+        state.defaultBrowser = defaultBrowserCache;
+        // A browser that was opened by hand, or opened behind other windows, is
+        // still found: follow the browser in front, else any open browser window.
+        const positive = (n) => (Number.isSafeInteger(n) && n > 0 ? n : 0);
+        if (positive(state.foregroundBrowserWindow))
+          browserWindow = state.foregroundBrowserWindow;
+        else if (!state.browserTargetWindowExists)
+          browserWindow = positive(state.browserFallbackWindow);
         if (Number.isSafeInteger(state.foregroundWindow) && state.foregroundWindow > 0) {
           defaultWindow = state.foregroundWindow;
         } else if (!state.targetWindowExists) {
@@ -620,6 +637,9 @@ async function handleRequest(req, res) {
           "mouseGestureZoomIn",
           "mouseGestureZoomOut",
           "keyboardPress",
+          "typeText",
+          "browserFocus",
+          "browserAddressBar",
           "systemVolume",
           "systemMute",
           "playerVolume",
@@ -652,6 +672,15 @@ async function handleRequest(req, res) {
           ? Math.max(0, Math.min(100, Number(body.value)))
           : 0;
         const filePath = String(body.path || "").slice(0, 2048);
+        let typedText = "";
+        if (body.action === "typeText") {
+          typedText = String(body.text ?? "").replace(
+            /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g,
+            "",
+          );
+          if (!typedText || typedText.length > 500)
+            return json(res, 400, { error: "Type between 1 and 500 characters." });
+        }
         if (body.action === "keyboardPress") {
           const key = String(body.key || "");
           const validKey =
@@ -689,8 +718,27 @@ async function handleRequest(req, res) {
           .slice(0, 2048);
         const deltaX = Math.max(-1200, Math.min(1200, Number(body.dx) || 0));
         const deltaY = Math.max(-1200, Math.min(1200, Number(body.dy) || 0));
-        const result = String(body.action).startsWith("mouse")
-          ? await mouseControl(body.action, { dx: deltaX, dy: deltaY })
+        // Mouse, key and text input all go through the long-running input worker:
+        // a new PowerShell per keystroke took seconds and let letters arrive out of order.
+        const inputPayload =
+          body.action === "keyboardPress"
+            ? {
+                key: String(body.key || ""),
+                modifiers: {
+                  ctrl: body.modifiers?.ctrl === true,
+                  alt: body.modifiers?.alt === true,
+                  shift: body.modifiers?.shift === true,
+                  win: body.modifiers?.win === true,
+                },
+              }
+            : body.action === "typeText"
+              ? { text: typedText }
+              : { dx: deltaX, dy: deltaY };
+        const result =
+          String(body.action).startsWith("mouse") ||
+          body.action === "keyboardPress" ||
+          body.action === "typeText"
+          ? await mouseControl(body.action, inputPayload)
           : await ps("control", {
               action: body.action,
               key: String(body.key || ""),

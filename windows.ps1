@@ -257,12 +257,31 @@ function Get-BrowserExecutable([string]$browser) {
   if($command){return $command.Source}
   throw "$browser browser was not found on this PC. Install it or choose another browser."
 }
+# Browsers are found by process as well as by "which window just came to the front":
+# Windows often refuses to bring a freshly launched window forward, so the front-window
+# check alone misses a browser that opened behind other windows.
+$script:BrowserProcessNames=@{brave=@('brave');chrome=@('chrome');edge=@('msedge');firefox=@('firefox')}
+$script:AllBrowserProcessNames=@('brave','chrome','msedge','firefox','opera','vivaldi')
+function Get-DefaultBrowserKey {
+  try { $progId=[string](Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice' -ErrorAction Stop).ProgId } catch { return '' }
+  switch -Regex ($progId) { '^BraveHTML' {return 'brave'} '^ChromeHTML' {return 'chrome'} '^MSEdgeHTM' {return 'edge'} '^FirefoxURL' {return 'firefox'} default {return ''} }
+}
+function Find-BrowserWindow([string]$browser) {
+  $names=@()
+  if($browser -eq 'default'){ $d=Get-DefaultBrowserKey; if($d){$names+=$script:BrowserProcessNames[$d]}; $names+=$script:AllBrowserProcessNames }
+  elseif($script:BrowserProcessNames.ContainsKey($browser)){ $names+=$script:BrowserProcessNames[$browser] }
+  foreach($name in ($names | Select-Object -Unique)) {
+    $p=Get-Process -Name $name -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero -and $_.MainWindowTitle } | Select-Object -First 1
+    if($p){ return [long]$p.MainWindowHandle }
+  }
+  return 0
+}
 function Get-CurrentWindow {
   $handle=[WinAudio]::ForegroundHandle()
   [pscustomobject]@{handle=$handle.ToInt64();title=[WinAudio]::WindowTitle($handle.ToInt64())}
 }
-function Wait-OpenedWindow([long]$previousHandle,[string]$previousTitle,$launchedProcess) {
-  for($i=0;$i -lt 180;$i++) {
+function Wait-OpenedWindow([long]$previousHandle,[string]$previousTitle,$launchedProcess,[int]$tries=180) {
+  for($i=0;$i -lt $tries;$i++) {
     $handle=[WinAudio]::ForegroundHandle()
     if($handle -ne [IntPtr]::Zero) {
       $number=$handle.ToInt64();$title=[WinAudio]::WindowTitle($number);$owner=[WinAudio]::WindowProcessId($number)
@@ -292,6 +311,13 @@ if ($Action -eq 'state') {
   $foregroundProcess=if($foregroundPid){Get-Process -Id $foregroundPid -ErrorAction SilentlyContinue}else{$null}
   $foregroundName=if($foregroundProcess){$foregroundProcess.ProcessName}else{''}
   $foregroundWindow=if($foreground.title -and $foregroundName -notmatch '^(powershell|pwsh|node|conhost|explorer|SearchHost|ShellExperienceHost|StartMenuExperienceHost|TextInputHost|LockApp)$'){[long]$foreground.handle}else{0}
+  $foregroundBrowserWindow=if($foreground.title -and $foregroundName -in $script:AllBrowserProcessNames){[long]$foreground.handle}else{0}
+  $browserOwner=[WinAudio]::WindowProcessId([long]$payload.browserWindow)
+  $browserProcess=if($browserOwner){Get-Process -Id $browserOwner -ErrorAction SilentlyContinue}else{$null}
+  $browserTargetWindowExists=[WinAudio]::WindowExists([long]$payload.browserWindow) -and $browserProcess -and ($browserProcess.ProcessName -in $script:AllBrowserProcessNames)
+  $browserFallbackWindow=if(-not $foregroundBrowserWindow -and -not $browserTargetWindowExists){Find-BrowserWindow 'default'}else{0}
+  $defaultBrowser=if($payload.detectBrowsers){Get-DefaultBrowserKey}else{$null}
+  $foregroundTitle=[string]$foreground.title; if($foregroundTitle.Length -gt 120){$foregroundTitle=$foregroundTitle.Substring(0,120)}
   $foregroundExplorerWindow=if($foreground.title -and $foregroundName -eq 'explorer'){[long]$foreground.handle}else{0}
   $targetOwner=[WinAudio]::WindowProcessId([long]$payload.targetWindow)
   $targetProcess=if($targetOwner){Get-Process -Id $targetOwner -ErrorAction SilentlyContinue}else{$null}
@@ -299,7 +325,7 @@ if ($Action -eq 'state') {
   $explorerOwner=[WinAudio]::WindowProcessId([long]$payload.explorerWindow)
   $explorerProcess=if($explorerOwner){Get-Process -Id $explorerOwner -ErrorAction SilentlyContinue}else{$null}
   $explorerTargetWindowExists=[WinAudio]::WindowExists([long]$payload.explorerWindow) -and $explorerProcess -and $explorerProcess.ProcessName -eq 'explorer'
-  [pscustomobject]@{systemVolume=[math]::Round($vol*100);systemMuted=$mute;players=$active;running=$running;browsers=$availableBrowsers;foregroundWindow=$foregroundWindow;foregroundExplorerWindow=$foregroundExplorerWindow;capsLock=[WinAudio]::IsKeyLocked(0x14);numLock=[WinAudio]::IsKeyLocked(0x90);scrollLock=[WinAudio]::IsKeyLocked(0x91);targetWindowExists=[bool]$targetWindowExists;explorerTargetWindowExists=[bool]$explorerTargetWindowExists} | ConvertTo-Json -Compress -Depth 4
+  [pscustomobject]@{systemVolume=[math]::Round($vol*100);systemMuted=$mute;players=$active;running=$running;browsers=$availableBrowsers;foregroundWindow=$foregroundWindow;foregroundExplorerWindow=$foregroundExplorerWindow;capsLock=[WinAudio]::IsKeyLocked(0x14);numLock=[WinAudio]::IsKeyLocked(0x90);scrollLock=[WinAudio]::IsKeyLocked(0x91);targetWindowExists=[bool]$targetWindowExists;explorerTargetWindowExists=[bool]$explorerTargetWindowExists;foregroundBrowserWindow=$foregroundBrowserWindow;browserTargetWindowExists=[bool]$browserTargetWindowExists;browserFallbackWindow=[long]$browserFallbackWindow;defaultBrowser=$defaultBrowser;foregroundTitle=$foregroundTitle;foregroundProcess=$foregroundName} | ConvertTo-Json -Compress -Depth 4
   exit 0
 }
 
@@ -320,11 +346,16 @@ if ($Action -eq 'control') {
       $before=Get-CurrentWindow
       if($browser -eq 'default'){$target=if($url){$url}else{'https://www.google.com'};$launched=Start-Process -FilePath $target -PassThru}
       else{$exe=Get-BrowserExecutable $browser;$target=if($url){$url}else{'about:blank'};$quoted='"'+$target.Replace('"','\"')+'"';$launched=Start-Process -FilePath $exe -ArgumentList $quoted -PassThru}
-      $handle=Wait-OpenedWindow ([long]$before.handle) ([string]$before.title) $launched
+      try { $handle=Wait-OpenedWindow ([long]$before.handle) ([string]$before.title) $launched 60 } catch { $handle=0 }
+      $owner=if($handle){[WinAudio]::WindowProcessId([long]$handle)}else{0}
+      $opened=if($owner){Get-Process -Id $owner -ErrorAction SilentlyContinue}else{$null}
+      if(-not $opened -or $opened.ProcessName -notin $script:AllBrowserProcessNames) { $handle=Find-BrowserWindow $browser }
+      if(-not $handle){throw 'The browser opened, but its window was not found. Click the browser window on the PC once, then tap Refresh.'}
+      [void][WinAudio]::ActivateWindow([long]$handle)
       [Console]::Out.Write($handle)
       exit 0
     }
-    { $_ -in @('browserBack','browserForward','browserReload','browserHome','browserArrowUp','browserArrowDown','browserArrowLeft','browserArrowRight','browserScrollUp','browserScrollDown','browserTab','browserShiftTab','browserEnter','browserEscape','browserCloseTab') } {
+    { $_ -in @('browserFocus','browserAddressBar','browserBack','browserForward','browserReload','browserHome','browserArrowUp','browserArrowDown','browserArrowLeft','browserArrowRight','browserScrollUp','browserScrollDown','browserTab','browserShiftTab','browserEnter','browserEscape','browserCloseTab') } {
       $handle=[long]$payload.targetWindow
       [WinAudio]::ReleaseRemoteModifiers()
       if(-not [WinAudio]::ActivateWindow($handle)){throw 'Open a browser from the Browser tab first.'}
@@ -345,6 +376,7 @@ if ($Action -eq 'control') {
         'browserEnter' {if(-not [WinAudio]::SendBrowserKey($handle,0x0D)){throw 'Could not send input to the browser.'}}
         'browserEscape' {if(-not [WinAudio]::SendBrowserKey($handle,0x1B)){throw 'Could not send input to the browser.'}}
         'browserCloseTab' {if(-not [WinAudio]::SendBrowserKey($handle,0x57,$true)){throw 'Could not send input to the browser.'}}
+        'browserAddressBar' {if(-not [WinAudio]::SendBrowserKey($handle,0x4C,$true)){throw 'Could not send input to the browser.'}}
       }
     }
     { $_ -in @('browserMinimize','browserMaximize','browserRestore') } {
@@ -358,20 +390,6 @@ if ($Action -eq 'control') {
       [WinAudio]::SendWindowKey($handle,0x7A)
     }
     'browserClose' {if(-not [WinAudio]::CloseWindow([long]$payload.targetWindow)){throw 'Open a browser from the Browser tab first.'}}
-    'keyboardPress' {
-      $key=[string]$payload.key
-      $vk=$null
-      if($key -match '^[A-Z]$'){$vk=[byte][char]$key}
-      elseif($key -match '^[0-9]$'){$vk=[byte][char]$key}
-      elseif($key -match '^F([1-9]|1[0-9]|2[0-4])$'){$vk=0x70+[int]$Matches[1]-1}
-      elseif($key -match '^NUM([0-9])$'){$vk=0x60+[int]$Matches[1]}
-      else{$vk=@{SPACE=0x20;ENTER=0x0D;TAB=0x09;ESCAPE=0x1B;BACKSPACE=0x08;DELETE=0x2E;INSERT=0x2D;HOME=0x24;END=0x23;PAGEUP=0x21;PAGEDOWN=0x22;UP=0x26;DOWN=0x28;LEFT=0x25;RIGHT=0x27;CAPSLOCK=0x14;NUMLOCK=0x90;SCROLLLOCK=0x91;PRINTSCREEN=0x2C;PAUSE=0x13;EQUALS=0xBB;MINUS=0xBD;COMMA=0xBC;PERIOD=0xBE;SLASH=0xBF;BACKSLASH=0xDC;SEMICOLON=0xBA;QUOTE=0xDE;LBRACKET=0xDB;RBRACKET=0xDD;BACKQUOTE=0xC0;NUMADD=0x6B;NUMSUBTRACT=0x6D;NUMMULTIPLY=0x6A;NUMDIVIDE=0x6F;NUMDECIMAL=0x6E;NUMENTER=0x0D;WIN=0x5B;ALTGR=0xA5;MENU=0x5D}[$key]}
-      if($null -eq $vk){throw 'Unsupported keyboard key.'}
-      $mods=$payload.modifiers
-      if($mods.win){[WinAudio]::keybd_event(0x5B,0,0,[UIntPtr]::Zero)}
-      [WinAudio]::Tap([byte]$vk,[bool]$mods.ctrl,[bool]$mods.shift,[bool]$mods.alt)
-      if($mods.win){[WinAudio]::keybd_event(0x5B,0,2,[UIntPtr]::Zero)}
-    }
     'playPause' { [WinAudio]::Key(0xB3) }
     'play' { [WinAudio]::Key(0xB3) }
     'pause' { [WinAudio]::Key(0xB3) }

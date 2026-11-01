@@ -6,7 +6,21 @@ if (pairingToken) {
   history.replaceState(null, "", location.pathname);
 }
 let token = localStorage.getItem(tokenKey) || "";
-const activeModifiers = new Set();
+// Modifiers are one-shot, like a phone keyboard: tap once to apply to the next key
+// only, double-tap to lock, tap again to release. 0 = off, 1 = next key, 2 = locked.
+const modifierNames = ["ctrl", "alt", "shift", "win"];
+const modifierState = { ctrl: 0, alt: 0, shift: 0, win: 0 };
+const modifierTapAt = {};
+const modifierKeys = { ctrl: ["CTRL"], alt: ["ALT", "ALTGR"], shift: ["SHIFT"], win: [] };
+const keyToModifier = { CTRL: "ctrl", ALT: "alt", ALTGR: "alt", SHIFT: "shift" };
+let armedTimer = null;
+// Keys and typed text are sent one after another, in the order they were tapped.
+let keyChain = Promise.resolve();
+let typedPrev = "";
+const kbdZoomKey = "remote-media-kbd-zoom";
+const kbdZoomMin = 0.25,
+  kbdZoomMax = 3;
+let kbdZoom = 1;
 let selected = localStorage.getItem("remote-media-player") || "";
 let state = null,
   timer = null,
@@ -92,6 +106,11 @@ function showPage(page) {
     .classList.toggle("hidden", page !== "home");
   localStorage.setItem("remote-media-page", page);
   if (page !== "mouse" && dragging) endDrag();
+  if (page !== "keyboard") clearModifiers(true);
+  if (page === "keyboard") {
+    requestAnimationFrame(() => applyKeyboardZoom(kbdZoom, false));
+    if (token) refresh();
+  }
   if (page === "window" && token) refresh();
   if (page === "apps" && token && !appsLoaded) loadApps();
 }
@@ -195,9 +214,22 @@ function paint(s) {
     .forEach((b) => (b.disabled = !s.defaultAppReady));
   document
     .querySelectorAll(
-      ".browser-controls [data-action],.browser-keys [data-action]",
+      ".browser-controls [data-action],.browser-keys [data-action],.keyboard-target [data-action]",
     )
     .forEach((b) => (b.disabled = !s.browserReady));
+  const browserNames = { brave: "Brave", chrome: "Chrome", edge: "Edge", firefox: "Firefox" };
+  document.querySelector('#browser-select option[value="default"]').textContent =
+    browserNames[s.defaultBrowser]
+      ? `Default browser (${browserNames[s.defaultBrowser]})`
+      : "Default browser";
+  const inFront = s.foregroundTitle
+    ? `${s.foregroundProcess || "app"}: ${s.foregroundTitle}`
+    : "No window in front";
+  $("#keyboard-target-title").textContent = inFront;
+  $("#keyboard-target").classList.toggle(
+    "warn",
+    !s.foregroundTitle || /^(powershell|pwsh|node|conhost|cmd|windowsterminal)$/i.test(s.foregroundProcess || ""),
+  );
   const found = (s.players || []).filter((p) => p.name === selected);
   const range = $("#player-volume");
   range.disabled = !found.length;
@@ -524,45 +556,137 @@ function buildKeyboard() {
   document.querySelectorAll(".keyboard-key").forEach((button) =>
     button.addEventListener("click", () => {
       const key = button.dataset.key;
-      if (["CTRL", "SHIFT", "ALT"].includes(key)) {
-        const name = key.toLowerCase();
-        if (activeModifiers.has(name)) activeModifiers.delete(name);
-        else activeModifiers.add(name);
-        document.querySelectorAll("[data-modifier=\"" + name + "\"]")
-          .forEach((el) => el.classList.toggle("active", activeModifiers.has(name)));
-        document.querySelectorAll("[data-key=\"" + key + "\"]")
-          .forEach((el) => el.classList.toggle("active", activeModifiers.has(name)));
-        refreshShiftLabels();
-        return;
-      }
-      command("keyboardPress", {
-        key,
-        modifiers: {
-          ctrl: activeModifiers.has("ctrl"),
-          alt: activeModifiers.has("alt"),
-          shift: activeModifiers.has("shift"),
-          win: activeModifiers.has("win"),
-        },
-      });
-      if (["CAPSLOCK", "NUMLOCK", "SCROLLLOCK"].includes(key))
-        setTimeout(refresh, 150);
+      if (keyToModifier[key]) tapModifier(keyToModifier[key]);
+      else sendKey(key);
     }),
   );
   document.querySelectorAll("[data-modifier]").forEach((button) =>
-    button.addEventListener("click", () => {
-      const name = button.dataset.modifier;
-      if (activeModifiers.has(name)) activeModifiers.delete(name);
-      else activeModifiers.add(name);
-      button.classList.toggle("active", activeModifiers.has(name));
-      document.querySelectorAll("[data-key=\"" + name.toUpperCase() + "\"]")
-        .forEach((el) => el.classList.toggle("active", activeModifiers.has(name)));
-      refreshShiftLabels();
-    }),
+    button.addEventListener("click", () => tapModifier(button.dataset.modifier)),
   );
+  renderModifiers();
+}
+function queueKeyboard(action, extra) {
+  keyChain = keyChain.then(() => command(action, extra));
+}
+function modifierSelector(name) {
+  return [
+    `[data-modifier="${name}"]`,
+    ...modifierKeys[name].map((key) => `.keyboard-key[data-key="${key}"]`),
+  ].join(",");
+}
+function renderModifiers() {
+  for (const name of modifierNames) {
+    const on = modifierState[name] > 0;
+    document.querySelectorAll(modifierSelector(name)).forEach((el) => {
+      el.classList.toggle("active", on);
+      el.classList.toggle("locked", modifierState[name] === 2);
+      if (el.dataset.modifier) el.setAttribute("aria-pressed", String(on));
+    });
+  }
+  const labels = { ctrl: "Ctrl", alt: "Alt", shift: "Shift", win: "Win" };
+  const armed = modifierNames.filter((name) => modifierState[name]);
+  $("#keyboard-armed").textContent = armed.length
+    ? (armed.some((name) => modifierState[name] === 1) ? "Next key with " : "Held: ") +
+      armed.map((name) => labels[name] + (modifierState[name] === 2 ? " (locked)" : "")).join(" + ")
+    : "";
   refreshShiftLabels();
 }
+function tapModifier(name) {
+  const now = Date.now(),
+    current = modifierState[name];
+  if (current === 0) modifierState[name] = 1;
+  else if (current === 1 && now - (modifierTapAt[name] || 0) < 450) modifierState[name] = 2;
+  else modifierState[name] = 0;
+  modifierTapAt[name] = now;
+  renderModifiers();
+  // A forgotten one-shot modifier clears itself instead of waiting to surprise the next key.
+  clearTimeout(armedTimer);
+  armedTimer = setTimeout(() => clearModifiers(), 10000);
+}
+function clearModifiers(includeLocked = false) {
+  let changed = false;
+  for (const name of modifierNames)
+    if (modifierState[name] === 1 || (includeLocked && modifierState[name])) {
+      modifierState[name] = 0;
+      changed = true;
+    }
+  if (changed) renderModifiers();
+}
+function sendKey(key) {
+  const modifiers = {
+    ctrl: modifierState.ctrl > 0,
+    alt: modifierState.alt > 0,
+    shift: modifierState.shift > 0,
+    win: modifierState.win > 0,
+  };
+  clearModifiers();
+  queueKeyboard("keyboardPress", { key, modifiers });
+  if (["CAPSLOCK", "NUMLOCK", "SCROLLLOCK"].includes(key)) setTimeout(refresh, 400);
+}
+// Text from the phone keyboard: send only what changed since the last input event,
+// so autocorrect, backspace and replaced words all arrive correctly.
+function sendTypedDiff(next) {
+  let i = 0;
+  const max = Math.min(typedPrev.length, next.length);
+  while (i < max && typedPrev[i] === next[i]) i++;
+  const isHigh = (code) => code >= 0xd800 && code <= 0xdbff;
+  if (i > 0 && i < Math.max(typedPrev.length, next.length) && isHigh(typedPrev.charCodeAt(i - 1))) i--;
+  const removed = Array.from(typedPrev.slice(i)).length;
+  const added = next.slice(i);
+  typedPrev = next;
+  for (let n = 0; n < removed; n++)
+    queueKeyboard("keyboardPress", { key: "BACKSPACE", modifiers: {} });
+  if (added) queueKeyboard("typeText", { text: added });
+}
+function resetTyping() {
+  const input = $("#type-input");
+  input.value = "";
+  typedPrev = "";
+}
+// ---- keyboard size ----
+function measureKeyboard() {
+  const box = $("#keyboard-zoom-box"),
+    layout = $("#keyboard-full-layout");
+  box.style.width = "";
+  box.style.height = "";
+  layout.style.width = "";
+  layout.style.transform = "";
+  return { w: layout.offsetWidth, h: layout.offsetHeight };
+}
+function applyKeyboardZoom(next, keepCenter = true, anchor = null) {
+  const scroll = $("#keyboard-scroll"),
+    box = $("#keyboard-zoom-box"),
+    layout = $("#keyboard-full-layout");
+  const before = kbdZoom;
+  const base = measureKeyboard();
+  if (!base.w) return; // the page is hidden; try again when it is shown
+  kbdZoom = Math.min(kbdZoomMax, Math.max(kbdZoomMin, next ?? kbdZoom));
+  layout.style.width = base.w + "px";
+  layout.style.transform = `scale(${kbdZoom})`;
+  box.style.width = Math.round(base.w * kbdZoom) + "px";
+  box.style.height = Math.round(base.h * kbdZoom) + "px";
+  $("#kbd-zoom-label").textContent = Math.round(kbdZoom * 100) + "%";
+  if (keepCenter && before !== kbdZoom) {
+    // Keep the point under the fingers (or the middle of the view) where it was.
+    const ax = anchor?.x ?? scroll.clientWidth / 2,
+      ay = anchor?.y ?? scroll.clientHeight / 2;
+    const cx = (scroll.scrollLeft + ax) / before,
+      cy = (scroll.scrollTop + ay) / before;
+    scroll.scrollLeft = cx * kbdZoom - ax;
+    scroll.scrollTop = cy * kbdZoom - ay;
+  }
+  try {
+    localStorage.setItem(kbdZoomKey, String(kbdZoom));
+  } catch {}
+}
+function fitKeyboard() {
+  const base = measureKeyboard();
+  if (!base.w) return;
+  applyKeyboardZoom($("#keyboard-scroll").clientWidth / base.w, false);
+  $("#keyboard-scroll").scrollLeft = 0;
+}
 function refreshShiftLabels() {
-  const shifted = activeModifiers.has("shift");
+  const shifted = modifierState.shift > 0;
   document.querySelectorAll(".keyboard-key.key-has-legends").forEach((button) => {
     button.classList.toggle("shift-active", shifted);
   });
@@ -899,6 +1023,8 @@ function disconnect(callApi = true) {
   localStorage.removeItem(tokenKey);
   clearInterval(timer);
   if (dragging) endDrag();
+  clearModifiers(true);
+  resetTyping();
   appsList = [];
   appsLoaded = false;
   renderApps();
@@ -1359,5 +1485,54 @@ $("#file-open-explorer").addEventListener(
   "click",
   () => currentFolder && playerCommand("openFolder", currentFolder),
 );
+{
+  const saved = Number(localStorage.getItem(kbdZoomKey));
+  if (saved > 0) kbdZoom = Math.min(kbdZoomMax, Math.max(kbdZoomMin, saved));
+}
+$("#kbd-zoom-in").addEventListener("click", () => applyKeyboardZoom(kbdZoom * 1.2));
+$("#kbd-zoom-out").addEventListener("click", () => applyKeyboardZoom(kbdZoom / 1.2));
+$("#kbd-zoom-reset").addEventListener("click", () => applyKeyboardZoom(1, false));
+$("#kbd-zoom-fit").addEventListener("click", fitKeyboard);
+window.addEventListener("resize", () => {
+  if (currentPage === "keyboard") applyKeyboardZoom(kbdZoom, false);
+});
+// Pinch with two fingers on the keyboard to resize it (the app's WebView has no native pinch-zoom).
+{
+  const scroll = $("#keyboard-scroll");
+  let pinch = null;
+  const spread = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  scroll.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 2) pinch = { distance: spread(e.touches), zoom: kbdZoom };
+  }, { passive: true });
+  scroll.addEventListener("touchmove", (e) => {
+    if (!pinch || e.touches.length !== 2) return;
+    e.preventDefault();
+    const box = scroll.getBoundingClientRect();
+    applyKeyboardZoom(pinch.zoom * (spread(e.touches) / pinch.distance), true, {
+      x: (e.touches[0].clientX + e.touches[1].clientX) / 2 - box.left,
+      y: (e.touches[0].clientY + e.touches[1].clientY) / 2 - box.top,
+    });
+  }, { passive: false });
+  const endPinch = (e) => { if (e.touches.length < 2) pinch = null; };
+  scroll.addEventListener("touchend", endPinch);
+  scroll.addEventListener("touchcancel", endPinch);
+}
+// Phone keyboard -> PC. Enter presses Enter and clears the box, ready for the next line.
+$("#type-input").addEventListener("input", (e) => {
+  sendTypedDiff(e.target.value);
+  if (e.target.value.length > 200) resetTyping();
+});
+$("#type-input").addEventListener("keydown", (e) => {
+  const keys = { Enter: "ENTER", Backspace: "BACKSPACE", Delete: "DELETE", ArrowLeft: "LEFT", ArrowRight: "RIGHT", ArrowUp: "UP", ArrowDown: "DOWN" };
+  if (e.key === "Enter") {
+    e.preventDefault();
+    queueKeyboard("keyboardPress", { key: "ENTER", modifiers: {} });
+    resetTyping();
+  } else if (keys[e.key] && (e.target.value === "" || e.key.startsWith("Arrow"))) {
+    // Nothing left in the box to edit, so send the key to the PC itself.
+    e.preventDefault();
+    queueKeyboard("keyboardPress", { key: keys[e.key], modifiers: {} });
+  }
+});
 if (token) startSession();
 else connected(false);

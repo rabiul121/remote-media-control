@@ -60,6 +60,10 @@ The APK is written to `android\app\build\outputs\apk\debug\app-debug.apk`. Andro
 
 - The Mouse page provides touchpad pointer movement. Tap to click, double-tap for a double click, and long-press for right click. Tap and then touch again and slide (or hold) to drag, for example a window's scroll bar. For precise drags use **Hold & drag**: place the pointer, tap the toggle, move the touchpad, then tap the toggle again to release. Two-finger swipes scroll. Pinch and Zoom buttons send Ctrl+wheel to the foreground app. A **Ctrl+Home** bar sits above the touchpad and a **Ctrl+End** bar below it, jumping the foreground app to the top or bottom. Reset reverses the zoom steps RemoteDeck sent to the same foreground window during the current listener session, avoiding app-specific reset shortcuts. Zoom only works in apps that implement Ctrl+wheel zoom; Windows has no universal app-content zoom command.
 - The Keyboard page has a full-size layout with shifted punctuation and live Caps Lock, Num Lock, and Scroll Lock indicators. Swipe over the keyboard to scroll vertically and horizontally on phone displays.
+- **Type with your phone's own keyboard:** tap the box at the top and type; every character (including Bengali, accents and emoji) is sent to the PC as you type, Backspace and autocorrect included, and Enter presses Enter. Click into the target field on the PC first (for YouTube search, press `/` or tap the search box with the Mouse page).
+- **Typing into** shows which window currently receives the keys, and turns orange if it is a terminal or nothing. The **Browser** button brings the browser to the front.
+- **Modifiers are one-shot:** tap Ctrl, Alt, Shift or Win once and it applies to the next key only and then releases. Double-tap to lock, tap again to release. An armed modifier is highlighted and shown above the keyboard, and clears itself after 10 seconds.
+- **Keyboard size:** use −, +, Fit (fills the screen width), or pinch with two fingers. Tap the percentage to return to 100%. The size is remembered.
 - Mouse and Keyboard pages link directly to each other. All control sections also provide quick links to them.
 
 ### Appearance
@@ -78,7 +82,8 @@ After 8 wrong pairing codes a device is locked out for 5 minutes.
 - If the phone cannot connect, verify the PC’s current IP and port in the tray menu, confirm both devices are on the same network, and allow Node.js through Windows Firewall on a private network.
 - If the Apps list is empty or fails to load, reload it once; listing needs Windows 10 or 11.
 - If the listener will not start, check `%LOCALAPPDATA%\RemoteMediaControl\listener-error.log`; "port already in use" means another copy is running.
-- If browser controls appear unavailable, open the browser from the Browser page so RemoteDeck can register its window.
+- RemoteDeck finds a running browser by itself (the one in front, otherwise any open Brave, Chrome, Edge or Firefox window), so controls work even for a browser you opened by hand. If they stay unavailable, click the browser window on the PC once or use the **Bring to front** button.
+- If keys do not appear where expected, check the **Typing into** line on the Keyboard page; a click on the target field on the PC is needed first.
 - If player seeking differs from the expected jump, check the selected player’s keyboard shortcut settings.
 - If per-player volume is unavailable, start audio in that player and refresh its status.
 

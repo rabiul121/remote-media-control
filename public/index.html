@@ -544,7 +544,11 @@
               ><button class="action-button" data-action="browserCloseTab">
                 × <span>Close tab</span></button
               ><button class="action-button" data-action="browserClose">
-                × <span>Close browser</span>
+                × <span>Close browser</span></button
+              ><button class="action-button" data-action="browserFocus">
+                ⌖ <span>Bring to front</span></button
+              ><button class="action-button" data-action="browserAddressBar">
+                ⌨ <span>Address bar</span>
               </button>
             </div>
             <div class="browser-keys" aria-label="Browser keyboard controls">
@@ -682,6 +686,31 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="6"/><path d="M12 3v6M12 9h.01"/></svg>
               </button>
             </div>
+            <div id="keyboard-target" class="keyboard-target">
+              <span class="keyboard-target-label">TYPING INTO</span>
+              <span id="keyboard-target-title" class="keyboard-target-title">Checking…</span>
+              <button
+                id="keyboard-focus-browser"
+                class="action-button keyboard-target-button"
+                data-action="browserFocus"
+                title="Bring the browser to the front"
+              >
+                Browser
+              </button>
+            </div>
+            <input
+              id="type-input"
+              class="type-input"
+              type="text"
+              inputmode="text"
+              enterkeyhint="send"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              placeholder="Tap here, then type with your phone keyboard"
+              aria-label="Type text to send to the PC"
+            />
             <div class="keyboard-tools">
               <div class="keyboard-modifiers" aria-label="Keyboard modifiers">
                 <button
@@ -709,9 +738,17 @@
                   Win
                 </button>
               </div>
+              <div class="keyboard-zoom" role="group" aria-label="Keyboard size">
+                <button type="button" id="kbd-zoom-out" class="action-button" aria-label="Make the keyboard smaller">−</button>
+                <button type="button" id="kbd-zoom-reset" class="action-button" aria-label="Reset keyboard size"><span id="kbd-zoom-label">100%</span></button>
+                <button type="button" id="kbd-zoom-in" class="action-button" aria-label="Make the keyboard larger">+</button>
+                <button type="button" id="kbd-zoom-fit" class="action-button" aria-label="Fit the keyboard to the screen width">Fit</button>
+              </div>
             </div>
-            <div class="keyboard-scroll">
-              <div class="keyboard-full-layout">
+            <div id="keyboard-armed" class="keyboard-armed" role="status" aria-live="polite"></div>
+            <div class="keyboard-scroll" id="keyboard-scroll">
+              <div class="keyboard-zoom-box" id="keyboard-zoom-box">
+              <div class="keyboard-full-layout" id="keyboard-full-layout">
                 <div class="keyboard-main">
                   <div id="keyboard-function-keys" class="keyboard-function-keys" aria-label="Function keys"></div>
                   <div id="keyboard-layout" class="keyboard-layout" aria-label="Main keyboard"></div>
@@ -733,6 +770,7 @@
                   </div>
                   <div id="numpad-layout" class="numpad-layout" aria-label="Numeric keypad"></div>
                 </div>
+              </div>
               </div>
             </div>
           </section>

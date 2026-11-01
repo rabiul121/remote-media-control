@@ -2531,3 +2531,128 @@ html[data-theme="light"] .mouse-edge-button {
   border-color: var(--lime);
   box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--lime) 45%, transparent);
 }
+
+/* ---------- Keyboard page: target, phone typing, modifiers, zoom ---------- */
+.keyboard-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 6px 6px 6px 11px;
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  background: var(--panel2);
+  font: 11px var(--mono);
+}
+.keyboard-target-label {
+  flex: none;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
+.keyboard-target-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.keyboard-target.warn .keyboard-target-title {
+  color: var(--orange);
+}
+.keyboard-target-button {
+  flex: none;
+  min-height: 32px;
+  padding: 4px 11px;
+  font-size: 11px;
+}
+.type-input {
+  display: block;
+  width: 100%;
+  height: 46px;
+  margin: 0 0 8px;
+  padding: 0 13px;
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  background: var(--panel2);
+  color: var(--text);
+  font: 16px var(--body);
+}
+.type-input::placeholder {
+  color: var(--muted);
+}
+.type-input:focus {
+  outline: 2px solid var(--lime);
+  outline-offset: 1px;
+}
+.keyboard-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.keyboard-zoom {
+  display: flex;
+  gap: 4px;
+}
+.keyboard-zoom .action-button {
+  min-width: 40px;
+  min-height: 38px;
+  padding: 4px 10px;
+  font: 600 14px var(--body);
+}
+.keyboard-zoom #kbd-zoom-reset {
+  min-width: 58px;
+  font: 500 11px var(--mono);
+}
+.keyboard-zoom #kbd-zoom-fit {
+  font-size: 12px;
+}
+/* An armed modifier used to have no styling at all, so a latched Alt or Ctrl was invisible. */
+.keyboard-modifier.active,
+.keyboard-key.active {
+  border-color: var(--lime);
+  background: color-mix(in srgb, var(--lime) 30%, var(--panel2));
+  color: var(--text);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--lime) 55%, transparent);
+}
+.keyboard-modifier.locked,
+.keyboard-key.locked {
+  background: var(--lime);
+  color: var(--lime-ink);
+  box-shadow: 0 0 0 2px var(--lime), inset 0 -4px 0 color-mix(in srgb, var(--lime-ink) 45%, transparent);
+}
+.keyboard-armed {
+  min-height: 0;
+  margin: 0 0 7px;
+  color: var(--lime);
+  font: 500 11px var(--mono);
+  letter-spacing: 0.04em;
+}
+.keyboard-armed:empty {
+  display: none;
+}
+.keyboard-zoom-box {
+  position: relative;
+}
+.keyboard-zoom-box > .keyboard-full-layout {
+  transform-origin: 0 0;
+}
+@media (orientation: landscape) {
+  .keyboard-target {
+    margin-bottom: 4px;
+    padding: 3px 4px 3px 9px;
+  }
+  .keyboard-target-button {
+    min-height: 26px;
+  }
+  .type-input {
+    height: 36px;
+    margin-bottom: 4px;
+  }
+  .keyboard-zoom .action-button {
+    min-height: 29px;
+    padding: 2px 8px;
+  }
+}
