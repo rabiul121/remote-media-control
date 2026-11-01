@@ -6,6 +6,37 @@ $OutputEncoding = $utf8
 $payloadText = [Console]::In.ReadToEnd()
 $payload = if ($payloadText) { $payloadText | ConvertFrom-Json } else { [pscustomobject]@{} }
 
+# Actions that need no native helpers run first, so they skip the C# compile below.
+if ($Action -eq 'browse') {
+  $requested=[string]$payload.path
+  if(!$requested) {
+    $drives=@(Get-PSDrive -PSProvider FileSystem | ForEach-Object { [pscustomobject]@{name=$_.Name;path=$_.Root;kind='drive'} })
+    [pscustomobject]@{path='';parent='';drives=$drives;folders=@();files=@()} | ConvertTo-Json -Compress -Depth 5
+  } else {
+    $item=Get-Item -LiteralPath $requested -ErrorAction Stop
+    if(!$item.PSIsContainer){throw 'That path is not a folder.'}
+    $folders=@(Get-ChildItem -LiteralPath $item.FullName -Directory -ErrorAction SilentlyContinue | ForEach-Object { [pscustomobject]@{name=$_.Name;path=$_.FullName;kind='folder'} })
+    $extensions=@($payload.mediaExtensions | ForEach-Object { $_.ToLowerInvariant() })
+    $files=@(Get-ChildItem -LiteralPath $item.FullName -File -ErrorAction SilentlyContinue | ForEach-Object { $ext=$_.Extension.ToLowerInvariant(); if($extensions -contains $ext){[pscustomobject]@{name=$_.Name;path=$_.FullName;kind='media';bytes=$_.Length}}else{[pscustomobject]@{name=$_.Name;path=$_.FullName;kind='file';bytes=$_.Length}} })
+    [pscustomobject]@{path=$item.FullName;parent=$item.Parent.FullName;drives=@();folders=$folders;files=$files} | ConvertTo-Json -Compress -Depth 5
+  }
+  exit 0
+}
+
+if ($Action -eq 'apps') {
+  # Start-menu entries (desktop programs and Store apps). Each AppID can be
+  # started with shell:AppsFolder\<AppID>.
+  if (-not (Get-Command Get-StartApps -ErrorAction SilentlyContinue)) { throw 'This version of Windows cannot list installed apps.' }
+  $seen=@{}
+  $items=@(Get-StartApps | ForEach-Object {
+    $name=([string]$_.Name).Trim(); $appId=([string]$_.AppID).Trim()
+    # Uninstall shortcuts are hidden so they cannot be started by a stray tap.
+    if($name -and $appId -and $name -notmatch '^uninstall\b' -and -not $seen.ContainsKey($appId)){ $seen[$appId]=$true; [pscustomobject]@{name=$name;appId=$appId} }
+  })
+  [Console]::Out.Write((ConvertTo-Json -InputObject $items -Compress -Depth 3))
+  exit 0
+}
+
 $native = @'
 using System;
 using System.Runtime.InteropServices;
@@ -83,7 +114,7 @@ public static class WinAudio {
   public static bool SendBrowserKey(long handle,byte key,bool ctrl=false,bool shift=false,bool alt=false) {
     ReleaseRemoteModifiers();
     var inputs=new List<Input>();
-    Action<byte,bool> addKey=(vk,up)=>inputs.Add(new Input{type=1,value=new InputUnion{keyboard=new KeyboardInput{virtualKey=vk,flags=up?KEYUP:0}}});
+    Action<byte,bool> addKey=(vk,up)=>inputs.Add(new Input{type=1,value=new InputUnion{keyboard=new KeyboardInput{virtualKey=vk,flags=(up?KEYUP:0u)|(IsExtended(vk)?1u:0u)}}});
     addKey(0x5B,true); addKey(0x5C,true);
     if(ctrl)addKey(0x11,false); if(shift)addKey(0x10,false); if(alt)addKey(0x12,false);
     addKey(key,false); addKey(key,true);
@@ -98,7 +129,10 @@ public static class WinAudio {
     }
     return false;
   }
-  public static void Key(byte key) { keybd_event(key,0,0,UIntPtr.Zero); keybd_event(key,0,KEYUP,UIntPtr.Zero); }
+  // Arrow, Home/End, PgUp/PgDn, Ins/Del, Win, Menu and right Ctrl/Alt are "extended" keys.
+  // Without KEYEVENTF_EXTENDEDKEY some apps read them as their numeric-keypad twins.
+  static bool IsExtended(byte k) { return (k>=0x21&&k<=0x28)||k==0x2D||k==0x2E||k==0x5B||k==0x5C||k==0x5D||k==0x6F||k==0xA3||k==0xA5; }
+  public static void Key(byte key) { uint ext=IsExtended(key)?1u:0u; keybd_event(key,0,ext,UIntPtr.Zero); keybd_event(key,0,ext|KEYUP,UIntPtr.Zero); }
   public static void Tap(byte key, bool ctrl=false, bool shift=false, bool alt=false) {
     if (ctrl) keybd_event(0x11,0,0,UIntPtr.Zero);
     if (shift) keybd_event(0x10,0,0,UIntPtr.Zero);
@@ -241,26 +275,15 @@ function Wait-OpenedWindow([long]$previousHandle,[string]$previousTitle,$launche
   throw 'The app is still opening, but its window was not detected. Try the file again after it finishes opening.'
 }
 
-if ($Action -eq 'browse') {
-  $requested=[string]$payload.path
-  if(!$requested) {
-    $drives=@(Get-PSDrive -PSProvider FileSystem | ForEach-Object { [pscustomobject]@{name=$_.Name;path=$_.Root;kind='drive'} })
-    [pscustomobject]@{path='';parent='';drives=$drives;folders=@();files=@()} | ConvertTo-Json -Compress -Depth 5
-  } else {
-    $item=Get-Item -LiteralPath $requested -ErrorAction Stop
-    if(!$item.PSIsContainer){throw 'That path is not a folder.'}
-    $folders=@(Get-ChildItem -LiteralPath $item.FullName -Directory -ErrorAction SilentlyContinue | ForEach-Object { [pscustomobject]@{name=$_.Name;path=$_.FullName;kind='folder'} })
-    $extensions=@($payload.mediaExtensions | ForEach-Object { $_.ToLowerInvariant() })
-    $files=@(Get-ChildItem -LiteralPath $item.FullName -File -ErrorAction SilentlyContinue | ForEach-Object { $ext=$_.Extension.ToLowerInvariant(); if($extensions -contains $ext){[pscustomobject]@{name=$_.Name;path=$_.FullName;kind='media';bytes=$_.Length}}else{[pscustomobject]@{name=$_.Name;path=$_.FullName;kind='file';bytes=$_.Length}} })
-    [pscustomobject]@{path=$item.FullName;parent=$item.Parent.FullName;drives=@();folders=$folders;files=$files} | ConvertTo-Json -Compress -Depth 5
-  }
-  exit 0
-}
-
 if ($Action -eq 'state') {
   $vol = [AudioControl]::GetSystemVolume(); $mute = [AudioControl]::GetSystemMuted()
-  $availableBrowsers=@('default')
-  foreach($browser in @('edge','chrome','firefox','brave')){try{$null=Get-BrowserExecutable $browser;$availableBrowsers+=$browser}catch{}}
+  # Probing four browsers is the slowest part of a status check, so the server
+  # asks for it only now and then and reuses the last answer in between.
+  $availableBrowsers=$null
+  if($payload.detectBrowsers){
+    $availableBrowsers=@('default')
+    foreach($browser in @('edge','chrome','firefox','brave')){try{$null=Get-BrowserExecutable $browser;$availableBrowsers+=$browser}catch{}}
+  }
   $procs = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -in @('vlc','MusicBee','PotPlayer','PotPlayerMini','PotPlayerMini64','mpc-hc','mpc-hc64','wmplayer') } | Select-Object -ExpandProperty ProcessName -Unique
   $running = @($procs | ForEach-Object { switch -Regex ($_.ToLowerInvariant()) { '^mpc-hc$' { 'mpc-hc64' } '^potplayermini' { 'potplayer' } default { $_.ToLowerInvariant() } } })
   $active = @([AudioControl]::GetPlayers() | ForEach-Object { [pscustomobject]@{name=$_.name;volume=[math]::Round($_.volume*100);muted=$_.muted} })
@@ -443,6 +466,11 @@ if ($Action -eq 'control') {
     'systemMute' { [AudioControl]::ToggleSystemMute() }
     'playerVolume' { if(!$player){throw 'Choose a player first.'}; if(-not [AudioControl]::SetPlayer($player,[Nullable[single]]([single]$value),$null)){throw 'That player has no active audio session.'} }
     'playerMute' { if(!$player){throw 'Choose a player first.'}; $all=[AudioControl]::GetPlayers() | Where-Object { $_.name -eq $player }; if(!$all){throw 'That player has no active audio session.'}; $mute = -not [bool]$all[0].muted; [AudioControl]::SetPlayer($player,$null,[Nullable[bool]]$mute) | Out-Null }
+    'openApp' {
+      $appId=[string]$payload.appId
+      if(!$appId){throw 'Choose an app first.'}
+      Start-Process -FilePath ('shell:AppsFolder\'+$appId) | Out-Null
+    }
     'openPlayer' { $exe=Get-PlayerExecutable $player; Start-Process -FilePath $exe | Out-Null }
     'closePlayer' { $found=$false; foreach($name in (Get-PlayerProcesses $player)){ foreach($p in (Get-Process -Name $name -ErrorAction SilentlyContinue)){ $found=$true; try { if($p.CloseMainWindow()){if(-not $p.WaitForExit(1800)){ $p.Kill() }}else{$p.Kill()} } catch { try{$p.Kill()}catch{} } } }; if(!$found){throw 'That player is not running.'} }
     'openFile' {
@@ -450,9 +478,9 @@ if ($Action -eq 'control') {
       if(!(Test-Path -LiteralPath $file -PathType Leaf)){throw 'That file is not available.'}
       if(@($payload.mediaExtensions | ForEach-Object { $_.ToLowerInvariant() }) -notcontains ([IO.Path]::GetExtension($file).ToLowerInvariant())){throw 'That file type is not supported.'}
       $exe=Get-PlayerExecutable $player
-      $args='"'+$file.Replace('"','\"')+'"'
-      if($player -eq 'vlc'){$args='--started-from-file '+$args}
-      Start-Process -FilePath $exe -ArgumentList $args | Out-Null
+      $fileArgument='"'+$file.Replace('"','\"')+'"'
+      if($player -eq 'vlc'){$fileArgument='--started-from-file '+$fileArgument}
+      Start-Process -FilePath $exe -ArgumentList $fileArgument | Out-Null
     }
     'openDefaultFile' {
       $file=[string]$payload.path

@@ -14,6 +14,15 @@ let state = null,
   debounce = {},
   currentFolder = "",
   currentPage = "home",
+  appsList = [],
+  appsLoaded = false,
+  appsLoading = false,
+  appsQuery = "",
+  appsStatusTimer = null,
+  polling = false,
+  dragging = false,
+  dragLock = false,
+  dragHoldTimer = null,
   selectedBrowser = localStorage.getItem("remote-media-browser") || "default",
   searchProvider =
     localStorage.getItem("remote-media-search-provider") || "google",
@@ -59,6 +68,7 @@ function showPage(page) {
       "home",
       "playback",
       "files",
+      "apps",
       "browser",
       "window",
       "mouse",
@@ -81,7 +91,9 @@ function showPage(page) {
     .querySelector(".welcome")
     .classList.toggle("hidden", page !== "home");
   localStorage.setItem("remote-media-page", page);
+  if (page !== "mouse" && dragging) endDrag();
   if (page === "window" && token) refresh();
+  if (page === "apps" && token && !appsLoaded) loadApps();
 }
 function setTheme(theme) {
   colorTheme = theme === "light" ? "light" : "dark";
@@ -101,6 +113,7 @@ async function request(url, options = {}) {
   try {
     data = await r.json();
   } catch {}
+  if (r.status === 401 && token && url !== "/api/pair") disconnect(false);
   if (!r.ok) throw new Error(data.error || "Could not reach the Windows host.");
   return data;
 }
@@ -115,8 +128,7 @@ async function pair(e) {
     });
     token = d.token;
     localStorage.setItem(tokenKey, token);
-    connected(true);
-    await refresh();
+    startSession();
   } catch (err) {
     $("#pair-error").textContent = err.message;
   }
@@ -228,9 +240,27 @@ function paint(s) {
     new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   localStorage.setItem("remote-media-player", selected || "");
 }
-async function refresh() {
+function startSession() {
+  connected(true);
+  clearInterval(timer);
+  refresh();
+  loadFiles("");
+  timer = setInterval(poll, 5000);
+}
+// The timer skips a tick while the phone is in the background or the previous
+// status check is still running, so slow PowerShell calls cannot pile up.
+async function poll() {
+  if (polling || document.hidden) return;
+  polling = true;
   try {
-    paint(await request("/api/state"));
+    await refresh();
+  } finally {
+    polling = false;
+  }
+}
+async function refresh(full = false) {
+  try {
+    paint(await request("/api/state" + (full === true ? "?full=1" : "")));
   } catch (err) {
     if (err.message === "Pair this device first.") {
       disconnect(false);
@@ -569,7 +599,6 @@ async function mouseCommand(action, extra = {}) {
       method: "POST",
       body: JSON.stringify({ action, ...extra }),
     });
-    if (action === "mouseLeftDown" || action === "mouseLeftUp") await refresh();
   } catch (e) {
     notify(e.message);
   }
@@ -614,7 +643,7 @@ async function loadFiles(path = currentFolder) {
     const data = await request("/api/files" + q);
     currentFolder = data.path || "";
     renderBreadcrumbs(currentFolder);
-    $("#file-up").disabled = !data.parent;
+    $("#file-up").disabled = !currentFolder;
     $("#file-open-explorer").disabled = !currentFolder;
     list.replaceChildren();
     const add = (item, kind) => {
@@ -728,17 +757,156 @@ function formatBytes(bytes) {
   } while (bytes >= 1024 && i < units.length - 1);
   return bytes.toFixed(bytes >= 10 ? 0 : 1) + " " + units[i];
 }
+// ---------- Apps page ----------
+const appsText = (value) =>
+  String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+const compareApps = (a, b) =>
+  a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true });
+function matchingApps() {
+  const tokens = appsText(appsQuery).split(/\s+/).filter(Boolean);
+  if (!tokens.length) return appsList;
+  const scored = [];
+  for (const app of appsList) {
+    if (!tokens.every((token) => app.key.includes(token))) continue;
+    // Best matches first: name starts with the search, then a word does, then anywhere.
+    let score = 2;
+    if (app.key.startsWith(tokens[0])) score = 0;
+    else if (app.key.split(/[\s\-_.()+,:;/\\[\]]+/).some((w) => w.startsWith(tokens[0]))) score = 1;
+    scored.push([score, app]);
+  }
+  scored.sort((a, b) => a[0] - b[0] || compareApps(a[1], b[1]));
+  return scored.map((entry) => entry[1]);
+}
+function setAppsStatus(message, isError = false) {
+  const el = $("#apps-status");
+  el.textContent = message;
+  el.classList.toggle("error", isError);
+}
+function updateAppsStatus() {
+  if (!appsLoaded) return;
+  const total = appsList.length,
+    shown = matchingApps().length;
+  setAppsStatus(
+    !total
+      ? "No apps were found on this PC."
+      : appsQuery.trim()
+        ? shown
+          ? `${shown} of ${total} apps`
+          : `No apps match “${appsQuery.trim()}”.`
+        : `${total} apps`,
+  );
+}
+function flashAppsStatus(message, isError = false) {
+  setAppsStatus(message, isError);
+  clearTimeout(appsStatusTimer);
+  appsStatusTimer = setTimeout(updateAppsStatus, 3500);
+}
+function renderApps() {
+  const host = $("#apps-list");
+  const matches = matchingApps();
+  const fragment = document.createDocumentFragment();
+  const grouped = !appsQuery.trim();
+  let group = "";
+  for (const app of matches) {
+    if (grouped) {
+      const first = appsText(app.name).charAt(0);
+      const letter = /\p{L}/u.test(first) ? first.toUpperCase() : "#";
+      if (letter !== group) {
+        group = letter;
+        fragment.append(
+          Object.assign(document.createElement("div"), {
+            className: "app-letter",
+            textContent: letter,
+          }),
+        );
+      }
+    }
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "app-row";
+    row.dataset.id = app.id;
+    row.dataset.name = app.name;
+    row.append(
+      Object.assign(document.createElement("span"), {
+        className: "app-badge",
+        textContent: (Array.from(app.name)[0] || "?").toUpperCase(),
+      }),
+      Object.assign(document.createElement("span"), {
+        className: "app-name",
+        textContent: app.name,
+      }),
+      Object.assign(document.createElement("span"), { className: "app-meta" }),
+    );
+    fragment.append(row);
+  }
+  host.replaceChildren(fragment);
+  updateAppsStatus();
+}
+async function loadApps(force = false) {
+  if (appsLoading) return;
+  appsLoading = true;
+  $("#apps-refresh").disabled = true;
+  if (!appsLoaded || force)
+    setAppsStatus("Loading apps… the first load can take a few seconds.");
+  try {
+    const data = await request("/api/apps" + (force ? "?refresh=1" : ""));
+    appsList = (data.apps || [])
+      .map((app) => ({ id: app.id, name: app.name, key: appsText(app.name) }))
+      .sort(compareApps);
+    appsLoaded = true;
+    renderApps();
+  } catch (e) {
+    if (appsLoaded) flashAppsStatus(e.message, true);
+    else setAppsStatus(e.message, true);
+  } finally {
+    appsLoading = false;
+    $("#apps-refresh").disabled = false;
+  }
+}
+async function openApp(id, name, row) {
+  if (!id || row?.classList.contains("opening")) return;
+  row?.classList.add("opening");
+  row?.querySelector(".app-meta")?.replaceChildren("Opening…");
+  flashAppsStatus(`Opening ${name}…`);
+  try {
+    await request("/api/control", {
+      method: "POST",
+      body: JSON.stringify({ action: "openApp", id }),
+    });
+    flashAppsStatus(`Opened ${name}.`);
+    // The status check adopts the newly focused window, so the Window page
+    // controls follow the app that was just opened.
+    setTimeout(refresh, 1500);
+    setTimeout(refresh, 4000);
+  } catch (e) {
+    flashAppsStatus(e.message, true);
+    notify(e.message);
+    if (/no longer in the list/i.test(e.message)) loadApps(true);
+  } finally {
+    setTimeout(() => {
+      row?.classList.remove("opening");
+      row?.querySelector(".app-meta")?.replaceChildren();
+    }, 1200);
+  }
+}
 function disconnect(callApi = true) {
   if (callApi && token)
     request("/api/unpair", { method: "POST" }).catch(() => {});
   token = "";
   localStorage.removeItem(tokenKey);
   clearInterval(timer);
+  if (dragging) endDrag();
+  appsList = [];
+  appsLoaded = false;
+  renderApps();
   connected(false);
 }
 $("#pair-form").addEventListener("submit", pair);
 $("#unpair").addEventListener("click", () => disconnect());
-$("#refresh").addEventListener("click", refresh);
+$("#refresh").addEventListener("click", () => refresh(true));
 document
   .querySelectorAll("[data-go-page]")
   .forEach((b) =>
@@ -808,8 +976,55 @@ let padActive = false,
   pendingTapPoint = null,
   suppressNextTapPointerId = null;
 let zoomCommandChain = Promise.resolve();
-function queueMouseAction(action) {
-  zoomCommandChain = zoomCommandChain.then(() => mouseCommand(action));
+function queueMouseAction(action, extra = {}) {
+  zoomCommandChain = zoomCommandChain.then(() => mouseCommand(action, extra));
+}
+// ---- drag: the left button stays down while the pointer moves ----
+// Everything sent while a drag is active goes through one ordered queue, so
+// "button down", the moves and "button up" cannot overtake each other.
+function updateDragUi() {
+  const button = $("#mouse-drag-toggle");
+  button.classList.toggle("active", dragLock);
+  button.setAttribute("aria-pressed", String(dragLock));
+  button.querySelector("span").textContent = dragLock
+    ? "Dragging: tap to release"
+    : "Hold & drag";
+  pad.classList.toggle("dragging", dragging);
+}
+function startDrag() {
+  if (dragging) return;
+  dragging = true;
+  clearTimeout(mouseMoveTimer);
+  mouseMoveTimer = null;
+  const { dx, dy } = pendingMouse;
+  pendingMouse = { dx: 0, dy: 0 };
+  if (dx || dy) queueMouseAction("mouseMove", { dx, dy });
+  queueMouseAction("mouseLeftDown");
+  navigator.vibrate?.(15);
+  updateDragUi();
+}
+function endDrag() {
+  if (!dragging) return;
+  clearTimeout(mouseMoveTimer);
+  mouseMoveTimer = null;
+  const { dx, dy } = pendingMouse;
+  pendingMouse = { dx: 0, dy: 0 };
+  if (dx || dy) queueMouseAction("mouseMove", { dx, dy });
+  queueMouseAction("mouseLeftUp");
+  dragging = false;
+  dragLock = false;
+  updateDragUi();
+}
+function beginPadDrag(pointerId) {
+  if (dragging || padDown?.pointerId !== pointerId || padPointers.size !== 1) return;
+  clearTimeout(dragHoldTimer);
+  dragHoldTimer = null;
+  clearTimeout(pendingTapTimer);
+  pendingTap = false;
+  pendingTapPoint = null;
+  padDown.dragging = true;
+  padDown.moved = true;
+  startDrag();
 }
 const pad = $("#mouse-pad");
 const padPointers = new Map();
@@ -824,7 +1039,9 @@ function flushMouseMove() {
   const dx = pendingMouse.dx,
     dy = pendingMouse.dy;
   pendingMouse = { dx: 0, dy: 0 };
-  if (dx || dy) mouseCommand("mouseMove", { dx, dy });
+  if (!dx && !dy) return;
+  if (dragging) queueMouseAction("mouseMove", { dx, dy });
+  else mouseCommand("mouseMove", { dx, dy });
 }
 function clearLongPress() {
   clearTimeout(longPressTimer);
@@ -861,23 +1078,35 @@ pad.addEventListener("pointerdown", (e) => {
   lastPadPoint = { x: e.clientX, y: e.clientY };
   pad.setPointerCapture(e.pointerId);
   if (padPointers.size === 1) {
+    // A touch that lands right after a tap and then holds or slides is a drag
+    // (like a laptop touchpad); lifting quickly is still a double click.
+    const dragCandidate = pendingTap && !dragging;
     padDown = {
       pointerId: e.pointerId,
       x: e.clientX,
       y: e.clientY,
       moved: false,
       longPressed: false,
+      dragCandidate,
+      dragging: false,
     };
-    longPressTimer = setTimeout(() => {
-      if (padDown?.pointerId !== e.pointerId || padDown.moved || padPointers.size !== 1) return;
-      padDown.longPressed = true;
-      padDown.moved = true;
-      pendingTap = false;
-      clearTimeout(pendingTapTimer);
-      mouseCommand("mouseRightClick");
-    }, 550);
+    if (dragCandidate) {
+      dragHoldTimer = setTimeout(() => beginPadDrag(e.pointerId), 220);
+    } else if (!dragging) {
+      longPressTimer = setTimeout(() => {
+        if (padDown?.pointerId !== e.pointerId || padDown.moved || padPointers.size !== 1) return;
+        padDown.longPressed = true;
+        padDown.moved = true;
+        pendingTap = false;
+        clearTimeout(pendingTapTimer);
+        mouseCommand("mouseRightClick");
+      }, 550);
+    }
   } else if (padPointers.size === 2) {
     clearLongPress();
+    clearTimeout(dragHoldTimer);
+    dragHoldTimer = null;
+    if (padDown?.dragging) endDrag();
     padDown = null;
     if (pendingTap) {
       clearTimeout(pendingTapTimer);
@@ -955,10 +1184,14 @@ pad.addEventListener("pointermove", (e) => {
   if (!lastPadPoint) return;
   const dx = e.clientX - lastPadPoint.x;
   const dy = e.clientY - lastPadPoint.y;
-  if (padDown?.pointerId === e.pointerId &&
-      Math.hypot(e.clientX - padDown.x, e.clientY - padDown.y) > 12) {
-    padDown.moved = true;
-    clearLongPress();
+  if (padDown?.pointerId === e.pointerId) {
+    const travelled = Math.hypot(e.clientX - padDown.x, e.clientY - padDown.y);
+    if (padDown.dragCandidate && !padDown.dragging && travelled > 3)
+      beginPadDrag(e.pointerId);
+    if (travelled > 12) {
+      padDown.moved = true;
+      clearLongPress();
+    }
   }
   pendingMouse.dx += Math.round(dx * 2.2);
   pendingMouse.dy += Math.round(dy * 2.2);
@@ -969,7 +1202,10 @@ pad.addEventListener("pointermove", (e) => {
 function endPad(e, cancelled = false) {
   if (padDown?.pointerId === e.pointerId) {
     clearLongPress();
-    if (!cancelled && !padDown.moved && !padDown.longPressed && suppressNextTapPointerId !== e.pointerId)
+    clearTimeout(dragHoldTimer);
+    dragHoldTimer = null;
+    if (padDown.dragging) endDrag();
+    else if (!cancelled && !dragging && !padDown.moved && !padDown.longPressed && suppressNextTapPointerId !== e.pointerId)
       queuePadTap({ x: e.clientX, y: e.clientY });
     padDown = null;
   }
@@ -985,10 +1221,21 @@ function endPad(e, cancelled = false) {
     gesture = null;
   }
 }
+$("#mouse-drag-toggle").addEventListener("click", () => {
+  if (dragging) endDrag();
+  else {
+    dragLock = true;
+    startDrag();
+  }
+});
 pad.addEventListener("pointerup", (e) => endPad(e));
 pad.addEventListener("pointercancel", (e) => endPad(e, true));
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) mouseCommand("mouseLeftUp");
+  if (!token) return;
+  if (document.hidden) {
+    if (dragging) endDrag();
+    else if (state?.mouseDragging) mouseCommand("mouseLeftUp");
+  } else refresh();
 });
 $("#players").addEventListener("click", (e) => {
   const b = e.target.closest("[data-player]");
@@ -1077,13 +1324,40 @@ $("#file-browser-toggle").addEventListener("click", () =>
   setFilesFolded(!$(".file-card").classList.contains("explorer-controls-only")),
 );
 $("#file-home").addEventListener("click", () => loadFiles(""));
+$("#apps-refresh").addEventListener("click", () => loadApps(true));
+$("#apps-search").addEventListener("input", (e) => {
+  clearTimeout(debounce.apps);
+  debounce.apps = setTimeout(() => {
+    appsQuery = e.target.value;
+    renderApps();
+    $("#apps-list").scrollTop = 0;
+  }, 80);
+});
+$("#apps-search").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    // Enter opens the best match, so "type a few letters, press Go" works.
+    e.preventDefault();
+    clearTimeout(debounce.apps);
+    appsQuery = e.target.value;
+    renderApps();
+    const first = $("#apps-list .app-row");
+    if (first) {
+      openApp(first.dataset.id, first.dataset.name, first);
+      e.target.blur();
+    }
+  } else if (e.key === "Escape") {
+    e.target.value = "";
+    appsQuery = "";
+    renderApps();
+  }
+});
+$("#apps-list").addEventListener("click", (e) => {
+  const row = e.target.closest(".app-row");
+  if (row) openApp(row.dataset.id, row.dataset.name, row);
+});
 $("#file-open-explorer").addEventListener(
   "click",
   () => currentFolder && playerCommand("openFolder", currentFolder),
 );
-if (token) {
-  connected(true);
-  refresh();
-  loadFiles("");
-  timer = setInterval(refresh, 5000);
-} else connected(false);
+if (token) startSession();
+else connected(false);

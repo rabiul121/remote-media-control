@@ -44,6 +44,12 @@ The APK is written to `android\app\build\outputs\apk\debug\app-debug.apk`. Andro
 - Use Explorer arrow, Tab, Shift+Tab, Enter, and close controls while browsing.
 - Control the active default-app window with arrows, Home/End, Page Up/Down, minimize, maximize, fullscreen, restore, and close.
 
+### Apps
+
+- The Apps page lists the programs and Store apps in the Windows Start menu, grouped A to Z. Type in the search box to filter (case and accent insensitive, several words in any order), tap an app to open it, or press Go/Enter on the keyboard to open the best match.
+- The list is cached on the PC for five minutes; the reload button fetches it again. "Uninstall" shortcuts are hidden. The phone can only start apps that appear in the list.
+- After an app opens, the Window page controls follow it automatically.
+
 ### Browser
 
 - Open the Windows default browser, Edge, Chrome, Firefox, or Brave when installed.
@@ -52,22 +58,26 @@ The APK is written to `android\app\build\outputs\apk\debug\app-debug.apk`. Andro
 
 ### Mouse and keyboard
 
-- The Mouse page provides touchpad pointer movement. Tap to click, double-tap for a double click, and long-press for right click. Two-finger swipes scroll. Pinch and Zoom buttons send Ctrl+wheel to the foreground app. Home and End send Ctrl+Home and Ctrl+End. Reset reverses the zoom steps RemoteDeck sent to the same foreground window during the current listener session, avoiding app-specific reset shortcuts. Zoom only works in apps that implement Ctrl+wheel zoom; Windows has no universal app-content zoom command.
+- The Mouse page provides touchpad pointer movement. Tap to click, double-tap for a double click, and long-press for right click. Tap and then touch again and slide (or hold) to drag, for example a window's scroll bar. For precise drags use **Hold & drag**: place the pointer, tap the toggle, move the touchpad, then tap the toggle again to release. Two-finger swipes scroll. Pinch and Zoom buttons send Ctrl+wheel to the foreground app. A **Ctrl+Home** bar sits above the touchpad and a **Ctrl+End** bar below it, jumping the foreground app to the top or bottom. Reset reverses the zoom steps RemoteDeck sent to the same foreground window during the current listener session, avoiding app-specific reset shortcuts. Zoom only works in apps that implement Ctrl+wheel zoom; Windows has no universal app-content zoom command.
 - The Keyboard page has a full-size layout with shifted punctuation and live Caps Lock, Num Lock, and Scroll Lock indicators. Swipe over the keyboard to scroll vertically and horizontally on phone displays.
 - Mouse and Keyboard pages link directly to each other. All control sections also provide quick links to them.
 
 ### Appearance
 
 - Switch between dark and light themes from the theme button.
-- The Home page provides shortcuts to Playback, Files, Browser, Window, Mouse, and Keyboard.
+- The Home page provides shortcuts to Playback, Files, Apps, Browser, Window, Mouse, and Keyboard.
 
 ## Configuration
 
-The receiver listens on port `8765` on the local network by default. Set the `PORT` environment variable before starting it to use another port. The pairing QR includes the selected port.
+The receiver listens on port `8765` on the local network by default. Set the `PORT` environment variable before starting it to use another port. The pairing QR and the tray menu links follow the selected port.
+
+After 8 wrong pairing codes a device is locked out for 5 minutes.
 
 ## Troubleshooting
 
 - If the phone cannot connect, verify the PC’s current IP and port in the tray menu, confirm both devices are on the same network, and allow Node.js through Windows Firewall on a private network.
+- If the Apps list is empty or fails to load, reload it once; listing needs Windows 10 or 11.
+- If the listener will not start, check `%LOCALAPPDATA%\RemoteMediaControl\listener-error.log`; "port already in use" means another copy is running.
 - If browser controls appear unavailable, open the browser from the Browser page so RemoteDeck can register its window.
 - If player seeking differs from the expected jump, check the selected player’s keyboard shortcut settings.
 - If per-player volume is unavailable, start audio in that player and refresh its status.

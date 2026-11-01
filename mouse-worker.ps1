@@ -15,9 +15,12 @@ public static class MouseRemote {
   [StructLayout(LayoutKind.Sequential)] struct Input { public uint type; public InputUnion value; }
   [DllImport("user32.dll",SetLastError=true)] static extern uint SendInput(uint count,Input[] inputs,int size);
   [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
-  const uint KEYUP=0x0002;
+  const uint KEYUP=0x0002, KEYEXTENDED=0x0001;
   static readonly Dictionary<IntPtr,int> zoomSteps = new Dictionary<IntPtr,int>();
-  static Input Key(byte key,bool up=false) { return new Input{type=1,value=new InputUnion{keyboard=new KeyboardInput{virtualKey=key,flags=up?KEYUP:0}}}; }
+  // Home, End, arrows, PgUp/PgDn, Ins/Del and Win are "extended" keys. Sending them without
+  // KEYEVENTF_EXTENDEDKEY makes some apps read them as the numeric-keypad twins (Num 7 / Num 1).
+  static bool IsExtended(byte k) { return (k>=0x21&&k<=0x28)||k==0x2D||k==0x2E||k==0x5B||k==0x5C; }
+  static Input Key(byte key,bool up=false) { uint flags=(up?KEYUP:0u)|(IsExtended(key)?KEYEXTENDED:0u); return new Input{type=1,value=new InputUnion{keyboard=new KeyboardInput{virtualKey=key,flags=flags}}}; }
   static Input Mouse(uint flags,int dx=0,int dy=0,uint data=0) { return new Input{type=0,value=new InputUnion{mouse=new MouseInput{dx=dx,dy=dy,data=data,flags=flags}}}; }
   static Input WheelInput(int delta) { return new Input{type=0,value=new InputUnion{mouse=new MouseInput{data=unchecked((uint)delta),flags=0x0800}}}; }
   static void Send(Input[] inputs) {

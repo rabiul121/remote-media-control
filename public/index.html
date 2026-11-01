@@ -95,6 +95,9 @@
             <button class="home-tile" data-go-page="files">
               <span class="home-tile-icon">▤</span><span>Files</span>
             </button>
+            <button class="home-tile" data-go-page="apps">
+              <span class="home-tile-icon">▦</span><span>Apps</span>
+            </button>
             <button class="home-tile" data-go-page="browser">
               <span class="home-tile-icon">◎</span><span>Browser</span>
             </button>
@@ -419,6 +422,45 @@
             </div>
           </section>
         </div>
+        <div class="page-panel" data-page-panel="apps">
+          <section class="card apps-card">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">INSTALLED APPS</div>
+                <h2>Find &amp; open</h2>
+              </div>
+              <button
+                id="apps-refresh"
+                class="icon-button"
+                title="Reload app list"
+                aria-label="Reload app list"
+              >
+                ↻
+              </button>
+            </div>
+            <input
+              id="apps-search"
+              class="apps-search"
+              type="search"
+              inputmode="search"
+              enterkeyhint="go"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              placeholder="Search apps"
+              aria-label="Search installed apps"
+            />
+            <div
+              id="apps-status"
+              class="apps-status"
+              role="status"
+              aria-live="polite"
+            >
+              Loading apps…
+            </div>
+            <div id="apps-list" class="apps-list"></div>
+          </section>
+        </div>
         <div class="page-panel" data-page-panel="browser">
           <section class="card browser-card">
             <div class="section-head">
@@ -570,6 +612,15 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M6 9h.01M9 9h.01M12 9h.01M15 9h.01M18 9h.01M6 12h.01M9 12h.01M12 12h.01M15 12h.01M18 12h.01M7 15h10"/></svg>
               </button>
             </div>
+            <button
+              class="action-button mouse-edge-button mouse-edge-top"
+              data-mouse-action="mouseHome"
+              aria-label="Ctrl+Home, jump to the top"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14M12 20V9M6 14l6-6 6 6" /></svg>
+              <span class="mouse-edge-keys">Ctrl + Home</span>
+              <span class="mouse-edge-label">Top</span>
+            </button>
             <div
               id="mouse-pad"
               class="mouse-pad"
@@ -579,10 +630,27 @@
               <span class="mouse-pad-icon">⌖</span>
               <span class="mouse-pad-label">Touchpad</span>
             </div>
+            <button
+              class="action-button mouse-edge-button mouse-edge-bottom"
+              data-mouse-action="mouseEnd"
+              aria-label="Ctrl+End, jump to the bottom"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14M12 4v11M6 10l6 6 6-6" /></svg>
+              <span class="mouse-edge-keys">Ctrl + End</span>
+              <span class="mouse-edge-label">Bottom</span>
+            </button>
             <p class="microcopy gesture-hint">
-              Tap: click · Double tap: double click · Hold: right click. Two fingers: scroll · Pinch or Zoom buttons: app zoom.
+              Tap: click · Double tap: double click · Hold: right click · Tap, then touch again and slide: drag (scroll bars, windows, selections). Two fingers: scroll · Pinch or Zoom buttons: app zoom.
             </p>
             <div class="mouse-buttons">
+              <button
+                id="mouse-drag-toggle"
+                class="action-button mouse-scroll-button mouse-drag-toggle"
+                aria-pressed="false"
+                aria-label="Hold the left button, then move the touchpad to drag"
+              >
+                ✥ <span>Hold &amp; drag</span>
+              </button>
               <button
                 class="action-button mouse-scroll-button"
                 data-mouse-action="mouseScrollUp"
@@ -599,9 +667,7 @@
               </button>
               <button class="action-button mouse-scroll-button" data-mouse-action="mouseZoomIn" aria-label="Zoom in">＋ <span>Zoom in</span></button>
               <button class="action-button mouse-scroll-button" data-mouse-action="mouseZoomOut" aria-label="Zoom out">− <span>Zoom out</span></button>
-              <button class="action-button mouse-scroll-button" data-mouse-action="mouseZoomReset" aria-label="Reset zoom">⟲ <span>Reset zoom</span></button>
-              <button class="action-button mouse-scroll-button" data-mouse-action="mouseHome" aria-label="Ctrl+Home">↖ <span>Ctrl+Home</span></button>
-              <button class="action-button mouse-scroll-button" data-mouse-action="mouseEnd" aria-label="Ctrl+End">↘ <span>Ctrl+End</span></button>
+              <button class="action-button mouse-scroll-button mouse-zoom-reset" data-mouse-action="mouseZoomReset" aria-label="Reset zoom">⟲ <span>Reset zoom</span></button>
             </div>
           </section>
         </div>

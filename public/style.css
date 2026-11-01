@@ -2356,3 +2356,178 @@ html[data-theme="light"] .keyboard-key.lock-on {
   background: linear-gradient(180deg, #f7fbef, #eaf2da);
   color: #35521a;
 }
+
+/* ---------- Mouse page: Ctrl+Home above the touchpad, Ctrl+End below it ---------- */
+.mouse-edge-button {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+  border: 1px solid color-mix(in srgb, var(--lime) 40%, var(--stroke));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--lime) 9%, var(--panel2));
+  color: var(--text);
+  font: 600 13px var(--body);
+  letter-spacing: 0.02em;
+}
+.mouse-edge-button svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  fill: none;
+  stroke: var(--lime);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.mouse-edge-keys {
+  font: 500 12px var(--mono);
+}
+.mouse-edge-label {
+  color: var(--muted);
+  font-weight: 500;
+}
+.mouse-edge-button:active:not(:disabled) {
+  border-color: var(--lime);
+  background: color-mix(in srgb, var(--lime) 20%, var(--panel2));
+}
+.mouse-edge-bottom {
+  margin-top: 8px;
+}
+.mouse-buttons .mouse-zoom-reset {
+  grid-column: 1 / -1;
+}
+html[data-theme="light"] .mouse-edge-button {
+  background: color-mix(in srgb, var(--lime) 14%, #ffffff);
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--lime) 55%, var(--stroke));
+}
+
+/* ---------- Apps page ---------- */
+.apps-search {
+  display: block;
+  width: 100%;
+  height: 46px;
+  margin-top: 14px;
+  padding: 0 13px;
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  background: var(--panel2);
+  color: var(--text);
+  font: 15px var(--body);
+}
+.apps-search::placeholder {
+  color: var(--muted);
+}
+.apps-search:focus {
+  outline: 2px solid var(--lime);
+  outline-offset: 1px;
+}
+.apps-status {
+  min-height: 18px;
+  margin: 9px 2px 7px;
+  color: var(--muted);
+  font: 11px var(--mono);
+  letter-spacing: 0.04em;
+}
+.apps-status.error {
+  color: var(--orange);
+}
+.apps-list {
+  max-height: min(60vh, 620px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  background: var(--panel2);
+}
+.apps-list:empty {
+  display: none;
+}
+.app-letter {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 5px 14px;
+  border-bottom: 1px solid var(--stroke);
+  background: var(--panel);
+  color: var(--lime);
+  font: 500 10px var(--mono);
+  letter-spacing: 0.12em;
+}
+.app-row {
+  display: flex;
+  width: 100%;
+  min-height: 54px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--stroke);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font: 14px var(--body);
+  cursor: pointer;
+}
+.app-row:last-child {
+  border-bottom: 0;
+}
+.app-row:hover,
+.app-row:focus-visible {
+  background: color-mix(in srgb, var(--lime) 8%, var(--panel2));
+  outline: none;
+}
+.app-row:active {
+  background: color-mix(in srgb, var(--lime) 16%, var(--panel2));
+}
+.app-badge {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  place-items: center;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--lime) 13%, var(--panel));
+  color: var(--lime);
+  font: 700 15px var(--display);
+}
+.app-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-meta {
+  flex: none;
+  color: var(--lime);
+  font: 10px var(--mono);
+}
+.app-row.opening {
+  opacity: 0.65;
+  pointer-events: none;
+}
+@media (max-width: 620px) and (orientation: portrait) {
+  .home-tile:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    min-height: 92px;
+  }
+}
+
+/* ---------- Mouse page: drag ---------- */
+.mouse-buttons .mouse-drag-toggle {
+  grid-column: 1 / -1;
+}
+.mouse-buttons .mouse-drag-toggle.active {
+  border-color: var(--lime);
+  background: color-mix(in srgb, var(--lime) 26%, var(--panel2));
+  color: var(--text);
+}
+.mouse-pad.dragging {
+  border-color: var(--lime);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--lime) 45%, transparent);
+}
