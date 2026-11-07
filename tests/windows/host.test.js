@@ -27,8 +27,8 @@ const reply = async (id) => { for (let i = 0; i < 400; i++) { const l = lines.ma
   ok(browse?.ok && listing.folders[0].name === "sub" && listing.files[0].name === "a.mp3", "browse: lists folders and media files");
   send("2", "apps", {}); const apps = await reply("2"); const list = apps && JSON.parse(apps.result);
   ok(apps?.ok && list.length === 1 && list[0].name === "Calculator", "apps: hides 'Uninstall' entries and duplicates");
-  send("3", "state", { detectBrowsers: true }); const state = await reply("3");
-  ok(state && state.ok === false && state.error, "a failing request is reported as an error (here: no Windows audio on Linux)");
+  send("3", "browse", { path: path.join(dir, "missing"), mediaExtensions: [] }); const state = await reply("3");
+  ok(state && state.ok === false && state.error, "a failing request is reported as an error");
   send("4", "browse", { path: dir, mediaExtensions: [] }); const again = await reply("4");
   ok(again?.ok, "the host keeps serving after that failure");
   send("5", "control", { action: "playerVolume", player: "", value: 50 }); const ctl = await reply("5");
