@@ -35,8 +35,9 @@ The APK is written to `android\app\build\outputs\apk\debug\app-debug.apk`. Andro
 
 - Play/pause, previous/next, 5-second and 30-second seeks, player volume and mute, and Windows system volume.
 - Volume step buttons adjust by 5 points.
+- **Player volume works three ways**, chosen automatically for each player: through Windows' per-app volume (all active audio outputs are searched, not only the default one); through MPC-HC's web interface when it is switched on (exact level, read back); or, when Windows cannot see the player's own volume (typical with exclusive/WASAPI-exclusive or ASIO output), with − / + buttons that press the player's volume keys: MPC-HC by message (no focus needed), MusicBee Ctrl+Alt+↑/↓ (its default hotkeys), VLC Ctrl+↑/↓, PotPlayer ↑/↓.
 - Supported players: VLC, MusicBee, PotPlayer, K-Lite Codec Pack (MPC-HC), and Windows Media Player. Open/close player and fullscreen controls are available where supported.
-- Per-player volume requires an active audio session. The 30-second seek repeats the player’s short-jump shortcut six times; configure that shortcut as 5 seconds in the player for an exact 30-second jump.
+- For an exact MPC-HC / K-Lite level, enable *Options → Player → Web Interface → Listen on port 13579* once. The 30-second seek repeats the player’s short-jump shortcut six times; configure that shortcut as 5 seconds in the player for an exact 30-second jump.
 
 ### Files and windows
 
@@ -58,13 +59,22 @@ The APK is written to `android\app\build\outputs\apk\debug\app-debug.apk`. Andro
 
 ### Mouse and keyboard
 
-- The Mouse page provides touchpad pointer movement. Tap to click, double-tap for a double click, and long-press for right click. Tap and then touch again and slide (or hold) to drag, for example a window's scroll bar. For precise drags use **Hold & drag**: place the pointer, tap the toggle, move the touchpad, then tap the toggle again to release. Two-finger swipes scroll. Pinch and Zoom buttons send Ctrl+wheel to the foreground app. A **Ctrl+Home** bar sits above the touchpad and a **Ctrl+End** bar below it, jumping the foreground app to the top or bottom. Reset reverses the zoom steps RemoteDeck sent to the same foreground window during the current listener session, avoiding app-specific reset shortcuts. Zoom only works in apps that implement Ctrl+wheel zoom; Windows has no universal app-content zoom command.
+- The Mouse page has a large touchpad with the controls grouped below it: **Click** (left, double, right, drag), **Scroll** (up, down, Top = Ctrl+Home, Bottom = Ctrl+End) and **Zoom** (out, reset, in). The touchpad gestures: Tap to click, double-tap for a double click, and long-press for right click. Tap and then touch again and slide (or hold) to drag, for example a window's scroll bar. For precise drags use **Hold & drag**: place the pointer, tap the toggle, move the touchpad, then tap the toggle again to release. Two-finger swipes scroll. Pinch and Zoom buttons send Ctrl+wheel to the foreground app. A **Ctrl+Home** bar sits above the touchpad and a **Ctrl+End** bar below it, jumping the foreground app to the top or bottom. Reset reverses the zoom steps RemoteDeck sent to the same foreground window during the current listener session, avoiding app-specific reset shortcuts. Zoom only works in apps that implement Ctrl+wheel zoom; Windows has no universal app-content zoom command.
 - The Keyboard page has a full-size layout with shifted punctuation and live Caps Lock, Num Lock, and Scroll Lock indicators. Swipe over the keyboard to scroll vertically and horizontally on phone displays.
 - **Type with your phone's own keyboard:** tap the box at the top and type; every character (including Bengali, accents and emoji) is sent to the PC as you type, Backspace and autocorrect included, and Enter presses Enter. Click into the target field on the PC first (for YouTube search, press `/` or tap the search box with the Mouse page).
 - **Typing into** shows which window currently receives the keys, and turns orange if it is a terminal or nothing. The **Browser** button brings the browser to the front.
 - **Modifiers are one-shot:** tap Ctrl, Alt, Shift or Win once and it applies to the next key only and then releases. Double-tap to lock, tap again to release. An armed modifier is highlighted and shown above the keyboard, and clears itself after 10 seconds.
 - **Keyboard size:** use −, +, Fit (fills the screen width), or pinch with two fingers. Tap the percentage to return to 100%. The size is remembered.
+- **Quick keys** (Alt+Tab, Win+D, Win+S, copy/paste/undo, Alt+F4, Task Manager, …) sit in a scrollable row above the keyboard.
+- **Test** next to *Typing into* checks that typing really reaches the PC and picks the delivery method that works (see Tools).
 - Mouse and Keyboard pages link directly to each other. All control sections also provide quick links to them.
+
+### Tools
+
+- **Power:** lock, sleep, screen off, restart, shut down and cancel. Restart and shut down need a second tap and wait 15 seconds, so **Cancel** can stop them.
+- **On this phone:** pointer speed, scroll speed, natural scrolling, vibrate on key taps, keep the screen on while using the touchpad, and reopening the last page.
+- **Typing on the PC:** how keys and text are delivered. *Test and fix typing* opens a small window, tries every method (standard keys, compatibility keys, direct Unicode text, clipboard paste) and switches to what works on your PC. With *switch automatically* on, a method that Windows rejects falls back to the next one.
+- **Help:** diagnostics (versions, helper mode, audio programs Windows can see, last typing error) and *Sign out other phones*.
 
 ### Appearance
 
@@ -85,7 +95,13 @@ After 8 wrong pairing codes a device is locked out for 5 minutes.
 - RemoteDeck finds a running browser by itself (the one in front, otherwise any open Brave, Chrome, Edge or Firefox window), so controls work even for a browser you opened by hand. If they stay unavailable, click the browser window on the PC once or use the **Bring to front** button.
 - If keys do not appear where expected, check the **Typing into** line on the Keyboard page; a click on the target field on the PC is needed first.
 - If player seeking differs from the expected jump, check the selected player’s keyboard shortcut settings.
-- If per-player volume is unavailable, start audio in that player and refresh its status.
+- If a player shows − / + instead of a slider, Windows cannot read its own volume (exclusive/ASIO output). Switch the player's output to shared mode, or enable MPC-HC's web interface, for a slider.
+- If typing does nothing: open **Tools → Test and fix typing**. If the test works but one app ignores typing, that app is probably running as administrator; the Keyboard page says so. Close it and reopen it normally, or start RemoteDeck as administrator.
+- If a maximized player shrinks when you seek, update to 1.3.0 (earlier versions un-maximized it).
+
+## For developers
+
+The code is split by feature; see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Run all tests with `cd tests && npm install && cd .. && npm test`.
 
 ## Release history
 

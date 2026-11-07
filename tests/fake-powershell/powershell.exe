@@ -1,0 +1,38 @@
+#!/usr/bin/env node
+// Fake Windows PowerShell for tests: emulates host.ps1, input-worker.ps1, once.ps1 and self-test.ps1.
+const fs = require("fs");
+const DIR = process.env.FAKE_PS_DIR; const readline = require("readline");
+const args = process.argv.slice(2), has = (s) => args.some((a) => a.endsWith(s));
+const log = (f, line) => fs.appendFileSync(DIR + "/" + f, line + "\n");
+function extra() { try { return JSON.parse("{" + fs.readFileSync(DIR + "/state.extra", "utf8").replace(/,\s*$/, "") + "}"); } catch { return {}; } }
+function answer(action, payload) {
+  log("calls.log", action + " " + JSON.stringify(payload));
+  if (fs.existsSync(DIR + "/host.slow") && action === "state") return new Promise((r) => setTimeout(() => r("{}"), 3000));
+  if (fs.existsSync(DIR + "/host.fail." + action)) throw new Error("Simulated failure in " + action);
+  switch (action) {
+    case "apps": return new Promise((r) => setTimeout(() => r(JSON.stringify([{ name: "Calculator", appId: "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App" }, { name: "Notepad++", appId: "C:\\Program Files\\Notepad++\\notepad++.exe" }, { name: "Zoom", appId: "zoom!App" }])), 120));
+    case "state": return JSON.stringify({ ...(payload.detectBrowsers ? { browsers: ["default", "brave"], defaultBrowser: "brave" } : {}), ...extra(), systemVolume: 40, systemMuted: false, players: [], running: [], foregroundWindow: 0, foregroundExplorerWindow: 0, targetWindowExists: false, explorerTargetWindowExists: false, foregroundTitle: "YouTube - Brave", foregroundProcess: "brave" });
+    case "control": return '{"ok":true}';
+    case "browse": return JSON.stringify({ path: "", parent: "", drives: [], folders: [], files: [] });
+    case "diagnostics": return JSON.stringify({ psVersion: "5.1", user: "tester", machine: "PC", session: 1, elevated: false, audio: ["output 1: vlc 50%"], mpcWeb: false, defaultBrowser: "brave" });
+    default: return "";
+  }
+}
+if (has("host.ps1") && process.env.FAKE_HOST_DIE) { process.stderr.write("Cannot start host"); process.exit(1); }
+if (has("host.ps1") || has("input-worker.ps1")) log("starts.log", args.find((a) => a.endsWith(".ps1")).split("/").pop());
+if (has("host.ps1")) {
+  process.stdout.write('{"ready":true}\n');
+  const rl = readline.createInterface({ input: process.stdin });
+  rl.on("line", async (line) => { const q = JSON.parse(line); try { const result = await answer(q.action, q.payload || {}); process.stdout.write(JSON.stringify({ id: q.id, ok: true, result }) + "\n"); } catch (e) { process.stdout.write(JSON.stringify({ id: q.id, ok: false, error: 'Exception calling "X" with "1" argument(s): "' + e.message + '"' }) + "\n"); } });
+} else if (has("input-worker.ps1")) {
+  const rl = readline.createInterface({ input: process.stdin });
+  rl.on("line", (line) => { log("worker.log", line); const q = JSON.parse(line);
+    if (fs.existsSync(DIR + "/input.fail") && q.action !== "configure") return process.stdout.write(JSON.stringify({ id: q.id, ok: false, error: 'Exception calling "KeyPress" with "5" argument(s): "Windows accepted 0 of 2 simulated input events."' }) + "\n");
+    process.stdout.write(JSON.stringify({ id: q.id, ok: true }) + "\n"); });
+} else if (has("self-test.ps1")) {
+  const worked = fs.existsSync(DIR + "/selftest.blocked") ? false : true;
+  process.stdout.write(JSON.stringify({ keys: { ok: worked }, unicode: { ok: false }, legacy: { ok: worked }, paste: { ok: worked }, elevated: false, anyWorks: worked, recommend: { keyMethod: "sendinput", textMethod: "paste" } }));
+} else if (has("once.ps1")) {
+  const action = args[args.indexOf("-Action") + 1]; let data = "";
+  process.stdin.on("data", (c) => (data += c)); process.stdin.on("end", async () => { try { process.stdout.write(String(await answer(action, data ? JSON.parse(data) : {}))); } catch (e) { process.stderr.write(e.message); process.exit(1); } });
+} else { process.exit(2); }

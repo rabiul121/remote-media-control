@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.0
+
+- Fixed: seeking in a maximized player (MusicBee and others) shrank the window. Only minimized windows are restored now.
+- Player volume: all active audio outputs are searched (not only the default one); MPC-HC / K-Lite can be controlled through its web interface; players whose own volume Windows cannot see get - / + buttons that press the player's volume keys, with an explanation, instead of a dead slider.
+- Keyboard: key events now carry hardware scan codes; if Windows rejects simulated input the keys fall back to the legacy method and text falls back to clipboard paste (the clipboard is restored); the real error is shown instead of a silent failure.
+- Keyboard: **Test and fix typing** (Tools, and a Test button on the Keyboard page) tries every method in a small window and switches to what works. Apps running as administrator, which Windows protects from simulated input, are called out with what to do.
+- Keyboard: Quick keys row (Alt+Tab, Win+D, Win+S, copy/paste/undo, Alt+F4, Task Manager, and more).
+- Mouse page redesigned: a larger touchpad, and controls grouped as Click (left, double, right, drag), Scroll (up, down, Top = Ctrl+Home, Bottom = Ctrl+End) and Zoom.
+- New Tools page: power (lock, sleep, screen off, restart, shut down with a 15 second Cancel), pointer and scroll speed, natural scrolling, vibration, keep screen on, reopen last page, typing settings, diagnostics, sign out other phones.
+- Faster: Windows actions run in long-running PowerShell hosts instead of a new process each time (one for status/control, one for slow file and app requests, one for input).
+- Code: the server is split into modules (`server/`), the Windows scripts into `windows/`, the phone UI into feature files (`public/js/`); see docs/ARCHITECTURE.md. New automated tests (`npm test`).
+
 ## 1.2.1
 
 - Browser: a browser that was opened by hand, or that opened behind other windows, is now found by process instead of only by "which window came to the front", so controls no longer report it as not detected. The default browser is named in the list (for example "Default browser (Brave)"), a newly opened browser is brought to the front, and new **Bring to front** and **Address bar** buttons were added.

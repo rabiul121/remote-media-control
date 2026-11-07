@@ -2357,55 +2357,6 @@ html[data-theme="light"] .keyboard-key.lock-on {
   color: #35521a;
 }
 
-/* ---------- Mouse page: Ctrl+Home above the touchpad, Ctrl+End below it ---------- */
-.mouse-edge-button {
-  display: flex;
-  width: 100%;
-  min-height: 48px;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 10px;
-  border: 1px solid color-mix(in srgb, var(--lime) 40%, var(--stroke));
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--lime) 9%, var(--panel2));
-  color: var(--text);
-  font: 600 13px var(--body);
-  letter-spacing: 0.02em;
-}
-.mouse-edge-button svg {
-  width: 20px;
-  height: 20px;
-  flex: none;
-  fill: none;
-  stroke: var(--lime);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.mouse-edge-keys {
-  font: 500 12px var(--mono);
-}
-.mouse-edge-label {
-  color: var(--muted);
-  font-weight: 500;
-}
-.mouse-edge-button:active:not(:disabled) {
-  border-color: var(--lime);
-  background: color-mix(in srgb, var(--lime) 20%, var(--panel2));
-}
-.mouse-edge-bottom {
-  margin-top: 8px;
-}
-.mouse-buttons .mouse-zoom-reset {
-  grid-column: 1 / -1;
-}
-html[data-theme="light"] .mouse-edge-button {
-  background: color-mix(in srgb, var(--lime) 14%, #ffffff);
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--lime) 55%, var(--stroke));
-}
-
 /* ---------- Apps page ---------- */
 .apps-search {
   display: block;
@@ -2516,20 +2467,6 @@ html[data-theme="light"] .mouse-edge-button {
     grid-column: 1 / -1;
     min-height: 92px;
   }
-}
-
-/* ---------- Mouse page: drag ---------- */
-.mouse-buttons .mouse-drag-toggle {
-  grid-column: 1 / -1;
-}
-.mouse-buttons .mouse-drag-toggle.active {
-  border-color: var(--lime);
-  background: color-mix(in srgb, var(--lime) 26%, var(--panel2));
-  color: var(--text);
-}
-.mouse-pad.dragging {
-  border-color: var(--lime);
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--lime) 45%, transparent);
 }
 
 /* ---------- Keyboard page: target, phone typing, modifiers, zoom ---------- */
@@ -2656,3 +2593,67 @@ html[data-theme="light"] .mouse-edge-button {
     padding: 2px 8px;
   }
 }
+
+/* ---------- Mouse page ---------- */
+.mouse-layout { display: flex; flex-direction: column; gap: 12px; }
+.mouse-layout .mouse-pad {
+  position: relative;
+  width: 100%;
+  height: clamp(400px, 66vh, 780px);
+  min-height: 0;
+  margin: 0;
+}
+.mouse-pad.dragging { border-color: var(--lime); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--lime) 45%, transparent); }
+.mouse-pad-hint {
+  position: absolute; left: 12px; right: 12px; bottom: 10px;
+  color: var(--muted); font: 10px/1.4 var(--mono); letter-spacing: 0.03em; text-align: center; pointer-events: none;
+}
+.mouse-controls { display: flex; flex-direction: column; gap: 10px; }
+.mouse-group-label { display: block; margin: 0 0 5px 2px; color: var(--muted); font: 500 10px var(--mono); letter-spacing: 0.14em; }
+.mouse-row { display: grid; gap: 8px; }
+.mouse-row-4 { grid-template-columns: repeat(4, 1fr); }
+.mouse-row-3 { grid-template-columns: repeat(3, 1fr); }
+.mouse-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-height: 58px; padding: 6px 4px; border-radius: 14px; font: 600 12px var(--body);
+}
+.mouse-btn-icon { display: grid; height: 22px; place-items: center; font-size: 18px; line-height: 1; }
+.mouse-btn svg { width: 20px; height: 20px; fill: none; stroke: var(--lime); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mouse-btn:active:not(:disabled) { border-color: var(--lime); background: color-mix(in srgb, var(--lime) 20%, var(--panel2)); }
+.mouse-btn.active { border-color: var(--lime); background: color-mix(in srgb, var(--lime) 28%, var(--panel2)); color: var(--text); }
+@media (orientation: landscape) and (max-height: 600px) {
+  .mouse-layout { flex-direction: row; align-items: stretch; }
+  .mouse-layout .mouse-pad { flex: 1 1 62%; height: calc(100vh - 120px); min-height: 220px; }
+  .mouse-controls { flex: 1 1 38%; justify-content: center; overflow-y: auto; }
+  .mouse-btn { min-height: 46px; }
+}
+
+/* ---------- Player volume without a readable level ---------- */
+.volume-note:empty { display: none; }
+.volume-note { margin: 0 0 8px; }
+.player-keys-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 6px; }
+.player-keys-row .action-button { min-height: 52px; font: 600 14px var(--body); }
+
+/* ---------- Quick keys ---------- */
+.quick-keys { display: flex; gap: 6px; margin: 0 0 8px; padding: 2px 0 6px; overflow-x: auto; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+.quick-key {
+  flex: none; min-height: 36px; padding: 0 12px; border: 1px solid var(--stroke); border-radius: 999px;
+  background: var(--panel2); color: var(--text); font: 600 12px var(--body); white-space: nowrap; cursor: pointer;
+}
+.quick-key:active { border-color: var(--lime); background: color-mix(in srgb, var(--lime) 20%, var(--panel2)); }
+.keyboard-hint { margin: 0 0 8px; padding: 8px 11px; border: 1px solid var(--orange); border-radius: 12px; color: var(--text); font: 12px/1.45 var(--body); }
+
+/* ---------- Tools page ---------- */
+.tools-heading { margin: 18px 0 8px; color: var(--lime); font: 500 11px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; }
+.tools-heading:first-of-type { margin-top: 12px; }
+.tools-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tool-btn { min-height: 50px; font: 600 13px var(--body); }
+.tool-btn.danger { border-color: color-mix(in srgb, var(--orange) 60%, var(--stroke)); }
+.tool-btn.confirm { background: var(--orange); border-color: var(--orange); color: #fff; }
+.tool-wide { display: block; width: 100%; min-height: 46px; margin-top: 8px; font: 600 13px var(--body); }
+.tools-row { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 10px; margin: 0 0 8px; font: 13px var(--body); }
+.tools-row select { grid-column: 2 / -1; min-height: 40px; padding: 0 10px; border: 1px solid var(--stroke); border-radius: 10px; background: var(--panel2); color: var(--text); font: 14px var(--body); }
+.tools-row output { min-width: 34px; color: var(--muted); font: 12px var(--mono); text-align: right; }
+.tools-check { display: flex; align-items: center; gap: 10px; min-height: 40px; font: 13px/1.35 var(--body); }
+.tools-check input { width: 20px; height: 20px; flex: none; accent-color: var(--lime); }
+.tools-result { margin: 8px 0 0; padding: 10px 12px; max-height: 280px; overflow: auto; border: 1px solid var(--stroke); border-radius: 12px; background: var(--panel2); color: var(--text); font: 11px/1.55 var(--mono); white-space: pre-wrap; word-break: break-word; }

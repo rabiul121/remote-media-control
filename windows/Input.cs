@@ -1,7 +1,3 @@
-$ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
-
-$native = @'
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -15,12 +11,15 @@ public static class MouseRemote {
   [StructLayout(LayoutKind.Sequential)] struct Input { public uint type; public InputUnion value; }
   [DllImport("user32.dll",SetLastError=true)] static extern uint SendInput(uint count,Input[] inputs,int size);
   [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] static extern void keybd_event(byte vk,byte scan,uint flags,UIntPtr extra);
+  [DllImport("user32.dll")] static extern uint MapVirtualKey(uint code,uint mapType);
+  static ushort Scan(byte vk) { try { return (ushort)MapVirtualKey(vk,0); } catch { return 0; } }
   const uint KEYUP=0x0002, KEYEXTENDED=0x0001;
   static readonly Dictionary<IntPtr,int> zoomSteps = new Dictionary<IntPtr,int>();
   // Home, End, arrows, PgUp/PgDn, Ins/Del and Win are "extended" keys. Sending them without
   // KEYEVENTF_EXTENDEDKEY makes some apps read them as the numeric-keypad twins (Num 7 / Num 1).
   static bool IsExtended(byte k) { return (k>=0x21&&k<=0x28)||k==0x2D||k==0x2E||k==0x5B||k==0x5C; }
-  static Input Key(byte key,bool up=false) { uint flags=(up?KEYUP:0u)|(IsExtended(key)?KEYEXTENDED:0u); return new Input{type=1,value=new InputUnion{keyboard=new KeyboardInput{virtualKey=key,flags=flags}}}; }
+  static Input Key(byte key,bool up=false) { uint flags=(up?KEYUP:0u)|(IsExtended(key)?KEYEXTENDED:0u); return new Input{type=1,value=new InputUnion{keyboard=new KeyboardInput{virtualKey=key,scanCode=Scan(key),flags=flags}}}; }
   static Input Mouse(uint flags,int dx=0,int dy=0,uint data=0) { return new Input{type=0,value=new InputUnion{mouse=new MouseInput{dx=dx,dy=dy,data=data,flags=flags}}}; }
   static Input WheelInput(int delta) { return new Input{type=0,value=new InputUnion{mouse=new MouseInput{data=unchecked((uint)delta),flags=0x0800}}}; }
   static void Send(Input[] inputs) {
@@ -57,14 +56,71 @@ public static class MouseRemote {
     }
     return list.ToArray();
   }
+  // ---- how input is delivered (chosen by the self-test, see windows/self-test.ps1) ----
+  static string keyMethod="sendinput", textMethod="unicode"; static bool allowFallback=true;
+  public static void Configure(string keys,string text,bool fallback) {
+    keyMethod=keys=="legacy"?"legacy":"sendinput"; textMethod=text=="paste"?"paste":"unicode"; allowFallback=fallback;
+  }
+  static void LegacyKey(byte vk,bool up) { keybd_event(vk,(byte)Scan(vk),(up?KEYUP:0u)|(IsExtended(vk)?KEYEXTENDED:0u),UIntPtr.Zero); }
+  static void LegacyKeyPress(byte vk,bool ctrl,bool shift,bool alt,bool win) {
+    if(win) LegacyKey(0x5B,false); if(ctrl) LegacyKey(0x11,false); if(shift) LegacyKey(0x10,false); if(alt) LegacyKey(0x12,false);
+    LegacyKey(vk,false); LegacyKey(vk,true);
+    if(alt) LegacyKey(0x12,true); if(shift) LegacyKey(0x10,true); if(ctrl) LegacyKey(0x11,true); if(win) LegacyKey(0x5B,true);
+  }
   public static void KeyPress(byte vk,bool ctrl,bool shift,bool alt,bool win) {
+    if(keyMethod=="legacy") { LegacyKeyPress(vk,ctrl,shift,alt,win); return; }
     var inputs=KeyPressInputs(vk,ctrl,shift,alt,win,!ctrl&&IsDown(0x11),!shift&&IsDown(0x10),!alt&&IsDown(0x12),!win&&(IsDown(0x5B)||IsDown(0x5C)));
     try { Send(inputs); }
-    catch { try { Send(KeyPressInputs(0x07,false,false,false,false,true,true,true,true)); } catch {} throw; }
+    catch {
+      try { Send(KeyPressInputs(0x07,false,false,false,false,true,true,true,true)); } catch {}
+      if(allowFallback) { LegacyKeyPress(vk,ctrl,shift,alt,win); return; }
+      throw;
+    }
   }
   public static void TypeText(string text) {
-    var inputs=TextInputs(text); const int chunk=200;
-    for(int i=0;i<inputs.Length;i+=chunk) { int n=Math.Min(chunk,inputs.Length-i); var part=new Input[n]; Array.Copy(inputs,i,part,0,n); Send(part); }
+    if(textMethod=="paste") { PasteText(text); return; }
+    try {
+      var inputs=TextInputs(text); const int chunk=200;
+      for(int i=0;i<inputs.Length;i+=chunk) { int n=Math.Min(chunk,inputs.Length-i); var part=new Input[n]; Array.Copy(inputs,i,part,0,n); Send(part); }
+    } catch { if(allowFallback) { PasteText(text); return; } throw; }
+  }
+  // ---- clipboard paste: slower, but works where simulated typing is filtered ----
+  [DllImport("user32.dll")] static extern bool OpenClipboard(IntPtr owner);
+  [DllImport("user32.dll")] static extern bool CloseClipboard();
+  [DllImport("user32.dll")] static extern bool EmptyClipboard();
+  [DllImport("user32.dll")] static extern IntPtr SetClipboardData(uint format,IntPtr memory);
+  [DllImport("user32.dll")] static extern IntPtr GetClipboardData(uint format);
+  [DllImport("user32.dll")] static extern bool IsClipboardFormatAvailable(uint format);
+  [DllImport("kernel32.dll")] static extern IntPtr GlobalAlloc(uint flags,UIntPtr bytes);
+  [DllImport("kernel32.dll")] static extern IntPtr GlobalLock(IntPtr memory);
+  [DllImport("kernel32.dll")] static extern bool GlobalUnlock(IntPtr memory);
+  static bool OpenClipboardRetry() { for(int i=0;i<10;i++) { if(OpenClipboard(IntPtr.Zero)) return true; System.Threading.Thread.Sleep(30); } return false; }
+  public static string GetClipboardText() {
+    if(!OpenClipboardRetry()) return null;
+    try {
+      if(!IsClipboardFormatAvailable(13)) return null;
+      IntPtr memory=GetClipboardData(13); if(memory==IntPtr.Zero) return null;
+      IntPtr pointer=GlobalLock(memory); if(pointer==IntPtr.Zero) return null;
+      try { return Marshal.PtrToStringUni(pointer); } finally { GlobalUnlock(memory); }
+    } finally { CloseClipboard(); }
+  }
+  public static bool SetClipboardText(string text) {
+    if(!OpenClipboardRetry()) return false;
+    try {
+      EmptyClipboard();
+      int bytes=(text.Length+1)*2; IntPtr memory=GlobalAlloc(0x0002,new UIntPtr((uint)bytes)); if(memory==IntPtr.Zero) return false;
+      IntPtr pointer=GlobalLock(memory); if(pointer==IntPtr.Zero) return false;
+      try { char[] chars=(text+"\0").ToCharArray(); Marshal.Copy(chars,0,pointer,chars.Length); } finally { GlobalUnlock(memory); }
+      return SetClipboardData(13,memory)!=IntPtr.Zero;
+    } finally { CloseClipboard(); }
+  }
+  public static void PasteText(string text) {
+    string previous=GetClipboardText();
+    if(!SetClipboardText(text)) throw new InvalidOperationException("Could not use the clipboard to paste.");
+    try {
+      KeyPress(0x56,true,false,false,false);   // Ctrl+V, with the same fallbacks as any other key
+      System.Threading.Thread.Sleep(180);
+    } finally { if(previous!=null) SetClipboardText(previous); }
   }
   public static void Home() { Send(new Input[]{Key(0x11),Key(0x24),Key(0x24,true),Key(0x11,true)}); }
   public static void End() { Send(new Input[]{Key(0x11),Key(0x23),Key(0x23,true),Key(0x11,true)}); }
@@ -110,47 +166,4 @@ public static class MouseRemote {
     CtrlWheel(reverseDelta,count);
     zoomSteps.Remove(target);
   }
-}
-'@
-Add-Type -TypeDefinition $native -Language CSharp
-
-function Resolve-Vk([string]$key) {
-    if ($key -match '^[A-Z0-9]$') { return [byte][char]$key }
-    if ($key -match '^F([1-9]|1[0-9]|2[0-4])$') { return [byte](0x70 + [int]$Matches[1] - 1) }
-    if ($key -match '^NUM([0-9])$') { return [byte](0x60 + [int]$Matches[1]) }
-    $map = @{SPACE=0x20;ENTER=0x0D;TAB=0x09;ESCAPE=0x1B;BACKSPACE=0x08;DELETE=0x2E;INSERT=0x2D;HOME=0x24;END=0x23;PAGEUP=0x21;PAGEDOWN=0x22;UP=0x26;DOWN=0x28;LEFT=0x25;RIGHT=0x27;CAPSLOCK=0x14;NUMLOCK=0x90;SCROLLLOCK=0x91;PRINTSCREEN=0x2C;PAUSE=0x13;EQUALS=0xBB;MINUS=0xBD;COMMA=0xBC;PERIOD=0xBE;SLASH=0xBF;BACKSLASH=0xDC;SEMICOLON=0xBA;QUOTE=0xDE;LBRACKET=0xDB;RBRACKET=0xDD;BACKQUOTE=0xC0;NUMADD=0x6B;NUMSUBTRACT=0x6D;NUMMULTIPLY=0x6A;NUMDIVIDE=0x6F;NUMDECIMAL=0x6E;NUMENTER=0x0D;WIN=0x5B;ALTGR=0xA5;MENU=0x5D}
-    if ($map.ContainsKey($key)) { return [byte]$map[$key] }
-    throw 'Unsupported keyboard key.'
-}
-
-while ($null -ne ($line = [Console]::In.ReadLine())) {
-    $id = $null
-    try {
-        $command = $line | ConvertFrom-Json
-        $id = $command.id
-        switch ($command.action) {
-            'mouseMove' { [MouseRemote]::Move([int]$command.dx,[int]$command.dy) }
-            'mouseLeftDown' { [MouseRemote]::Down(0) }
-            'mouseLeftUp' { [MouseRemote]::Up(0) }
-            'mouseLeftClick' { [MouseRemote]::Click(0) }
-            'mouseRightClick' { [MouseRemote]::Click(1) }
-            'mouseMiddleClick' { [MouseRemote]::Click(2) }
-            'mouseDoubleClick' { [MouseRemote]::Click(0); Start-Sleep -Milliseconds 90; [MouseRemote]::Click(0) }
-            'mouseScrollUp' { [MouseRemote]::Wheel(120) }
-            'mouseScrollDown' { [MouseRemote]::Wheel(-120) }
-            'mouseHome' { [MouseRemote]::Home() }
-            'mouseEnd' { [MouseRemote]::End() }
-            'mouseZoomIn' { [MouseRemote]::ZoomIn() }
-            'mouseZoomOut' { [MouseRemote]::ZoomOut() }
-            'mouseZoomReset' { [MouseRemote]::ZoomReset() }
-            'mouseGestureZoomIn' { [MouseRemote]::ZoomIn() }
-            'mouseGestureZoomOut' { [MouseRemote]::ZoomOut() }
-            'keyboardPress' { $m = $command.modifiers; [MouseRemote]::KeyPress((Resolve-Vk ([string]$command.key)),[bool]$m.ctrl,[bool]$m.shift,[bool]$m.alt,[bool]$m.win) }
-            'typeText' { [MouseRemote]::TypeText([string]$command.text) }
-            default { throw 'Unknown mouse action.' }
-        }
-        @{id=$id;ok=$true} | ConvertTo-Json -Compress | ForEach-Object { [Console]::Out.WriteLine($_) }
-    } catch {
-        @{id=$id;ok=$false;error=$_.Exception.Message} | ConvertTo-Json -Compress | ForEach-Object { [Console]::Out.WriteLine($_) }
-    }
 }

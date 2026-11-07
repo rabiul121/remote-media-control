@@ -1,0 +1,6 @@
+{
+  "name": "remotedeck-tests",
+  "private": true,
+  "description": "Test dependencies, kept apart so the Windows install stays small. Run: cd tests && npm install",
+  "devDependencies": { "jsdom": "^30.0.0" }
+}

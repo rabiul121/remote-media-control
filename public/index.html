@@ -107,6 +107,9 @@
             <button class="home-tile" data-go-page="mouse">
               <span class="home-tile-icon">⌖</span><span>Mouse</span>
             </button>
+            <button class="home-tile" data-go-page="tools">
+              <span class="home-tile-icon">⚙</span><span>Tools</span>
+            </button>
             <button class="home-tile" data-go-page="keyboard">
               <span class="home-tile-icon">⌨</span><span>Keyboard</span>
             </button>
@@ -300,7 +303,12 @@
                   ♫
                 </button>
               </div>
-              <div class="range-row">
+              <p id="player-volume-note" class="microcopy volume-note"></p>
+              <div id="player-keys-row" class="player-keys-row hidden">
+                <button class="action-button" data-player-step="down" aria-label="Player volume down">− <span>Volume down</span></button>
+                <button class="action-button" data-player-step="up" aria-label="Player volume up">+ <span>Volume up</span></button>
+              </div>
+              <div id="player-slider-row" class="range-row">
                 <button
                   class="step-button"
                   data-volume="player"
@@ -616,62 +624,45 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M6 9h.01M9 9h.01M12 9h.01M15 9h.01M18 9h.01M6 12h.01M9 12h.01M12 12h.01M15 12h.01M18 12h.01M7 15h10"/></svg>
               </button>
             </div>
-            <button
-              class="action-button mouse-edge-button mouse-edge-top"
-              data-mouse-action="mouseHome"
-              aria-label="Ctrl+Home, jump to the top"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14M12 20V9M6 14l6-6 6 6" /></svg>
-              <span class="mouse-edge-keys">Ctrl + Home</span>
-              <span class="mouse-edge-label">Top</span>
-            </button>
-            <div
-              id="mouse-pad"
-              class="mouse-pad"
-              role="application"
-              aria-label="Touchpad: move the pointer, tap to click, double tap to double click, hold to right click"
-            >
-              <span class="mouse-pad-icon">⌖</span>
-              <span class="mouse-pad-label">Touchpad</span>
-            </div>
-            <button
-              class="action-button mouse-edge-button mouse-edge-bottom"
-              data-mouse-action="mouseEnd"
-              aria-label="Ctrl+End, jump to the bottom"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14M12 4v11M6 10l6 6 6-6" /></svg>
-              <span class="mouse-edge-keys">Ctrl + End</span>
-              <span class="mouse-edge-label">Bottom</span>
-            </button>
-            <p class="microcopy gesture-hint">
-              Tap: click · Double tap: double click · Hold: right click · Tap, then touch again and slide: drag (scroll bars, windows, selections). Two fingers: scroll · Pinch or Zoom buttons: app zoom.
-            </p>
-            <div class="mouse-buttons">
-              <button
-                id="mouse-drag-toggle"
-                class="action-button mouse-scroll-button mouse-drag-toggle"
-                aria-pressed="false"
-                aria-label="Hold the left button, then move the touchpad to drag"
+            <div class="mouse-layout">
+              <div
+                id="mouse-pad"
+                class="mouse-pad"
+                role="application"
+                aria-label="Touchpad: move the pointer, tap to click, double tap to double click, hold to right click"
               >
-                ✥ <span>Hold &amp; drag</span>
-              </button>
-              <button
-                class="action-button mouse-scroll-button"
-                data-mouse-action="mouseScrollUp"
-                aria-label="Scroll up"
-              >
-                ↑ <span>Scroll up</span>
-              </button>
-              <button
-                class="action-button mouse-scroll-button"
-                data-mouse-action="mouseScrollDown"
-                aria-label="Scroll down"
-              >
-                ↓ <span>Scroll down</span>
-              </button>
-              <button class="action-button mouse-scroll-button" data-mouse-action="mouseZoomIn" aria-label="Zoom in">＋ <span>Zoom in</span></button>
-              <button class="action-button mouse-scroll-button" data-mouse-action="mouseZoomOut" aria-label="Zoom out">− <span>Zoom out</span></button>
-              <button class="action-button mouse-scroll-button mouse-zoom-reset" data-mouse-action="mouseZoomReset" aria-label="Reset zoom">⟲ <span>Reset zoom</span></button>
+                <span class="mouse-pad-icon">⌖</span>
+                <span class="mouse-pad-label">Touchpad</span>
+                <span class="mouse-pad-hint">Tap click · Hold right-click · Tap, touch, slide to drag · Two fingers scroll or zoom</span>
+              </div>
+              <div class="mouse-controls">
+                <div class="mouse-group" role="group" aria-label="Click and drag">
+                  <span class="mouse-group-label">CLICK</span>
+                  <div class="mouse-row mouse-row-4">
+                    <button class="action-button mouse-btn" data-mouse-action="mouseLeftClick" aria-label="Left"><span class="mouse-btn-icon">◉</span><span>Left</span></button>
+                    <button class="action-button mouse-btn" data-mouse-action="mouseDoubleClick" aria-label="Double"><span class="mouse-btn-icon">◎</span><span>Double</span></button>
+                    <button class="action-button mouse-btn" data-mouse-action="mouseRightClick" aria-label="Right"><span class="mouse-btn-icon">◐</span><span>Right</span></button>
+                    <button id="mouse-drag-toggle" class="action-button mouse-btn mouse-drag-toggle" aria-pressed="false" aria-label="Hold the left button, then move the touchpad to drag"><span class="mouse-btn-icon">✥</span><span>Drag</span></button>
+                  </div>
+                </div>
+                <div class="mouse-group" role="group" aria-label="Scroll">
+                  <span class="mouse-group-label">SCROLL</span>
+                  <div class="mouse-row mouse-row-4">
+                    <button class="action-button mouse-btn" data-mouse-action="mouseScrollUp" aria-label="Up"><span class="mouse-btn-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V6M6 12l6-6 6 6" /></svg></span><span>Up</span></button>
+                    <button class="action-button mouse-btn" data-mouse-action="mouseScrollDown" aria-label="Down"><span class="mouse-btn-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v13M6 12l6 6 6-6" /></svg></span><span>Down</span></button>
+                    <button class="action-button mouse-btn" data-mouse-action="mouseHome" aria-label="Top"><span class="mouse-btn-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14M12 20V9M6 14l6-6 6 6" /></svg></span><span>Top</span></button>
+                    <button class="action-button mouse-btn" data-mouse-action="mouseEnd" aria-label="Bottom"><span class="mouse-btn-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14M12 4v11M6 10l6 6 6-6" /></svg></span><span>Bottom</span></button>
+                  </div>
+                </div>
+                <div class="mouse-group" role="group" aria-label="Zoom">
+                  <span class="mouse-group-label">ZOOM</span>
+                  <div class="mouse-row mouse-row-3">
+                    <button class="action-button mouse-btn" data-mouse-action="mouseZoomOut" aria-label="Out"><span class="mouse-btn-icon">−</span><span>Out</span></button>
+                    <button class="action-button mouse-btn" data-mouse-action="mouseZoomReset" aria-label="Reset"><span class="mouse-btn-icon">⟲</span><span>Reset</span></button>
+                    <button class="action-button mouse-btn" data-mouse-action="mouseZoomIn" aria-label="In"><span class="mouse-btn-icon">＋</span><span>In</span></button>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         </div>
@@ -697,7 +688,9 @@
               >
                 Browser
               </button>
+              <button id="keyboard-diagnose" class="action-button keyboard-target-button" title="Check that typing reaches this PC">Test</button>
             </div>
+            <div id="keyboard-hint" class="keyboard-hint hidden" role="status"></div>
             <input
               id="type-input"
               class="type-input"
@@ -746,6 +739,24 @@
               </div>
             </div>
             <div id="keyboard-armed" class="keyboard-armed" role="status" aria-live="polite"></div>
+            <div class="quick-keys" aria-label="Quick keys">
+                <button type="button" class="quick-key" data-quick-key="ALT+TAB">Alt+Tab</button>
+                <button type="button" class="quick-key" data-quick-key="WIN+D">Desktop</button>
+                <button type="button" class="quick-key" data-quick-key="WIN+S">Search</button>
+                <button type="button" class="quick-key" data-quick-key="WIN+E">Explorer</button>
+                <button type="button" class="quick-key" data-quick-key="WIN+R">Run</button>
+                <button type="button" class="quick-key" data-quick-key="WIN+SHIFT+S">Snip</button>
+                <button type="button" class="quick-key" data-quick-key="CTRL+C">Copy</button>
+                <button type="button" class="quick-key" data-quick-key="CTRL+V">Paste</button>
+                <button type="button" class="quick-key" data-quick-key="CTRL+Z">Undo</button>
+                <button type="button" class="quick-key" data-quick-key="CTRL+A">Select all</button>
+                <button type="button" class="quick-key" data-quick-key="CTRL+W">Close tab</button>
+                <button type="button" class="quick-key" data-quick-key="ALT+F4">Close app</button>
+                <button type="button" class="quick-key" data-quick-key="F5">Refresh</button>
+                <button type="button" class="quick-key" data-quick-key="ESCAPE">Esc</button>
+                <button type="button" class="quick-key" data-quick-key="CTRL+SHIFT+ESCAPE">Task Mgr</button>
+                <button type="button" class="quick-key" data-quick-key="WIN+L">Lock</button>
+            </div>
             <div class="keyboard-scroll" id="keyboard-scroll">
               <div class="keyboard-zoom-box" id="keyboard-zoom-box">
               <div class="keyboard-full-layout" id="keyboard-full-layout">
@@ -775,6 +786,48 @@
             </div>
           </section>
         </div>
+        <div class="page-panel" data-page-panel="tools">
+          <section class="card tools-card">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">TOOLS</div>
+                <h2>Power, settings &amp; help</h2>
+              </div>
+            </div>
+            <h3 class="tools-heading">Power</h3>
+            <div class="tools-grid">
+                <button type="button" class="action-button tool-btn" data-power="lock">Lock</button>
+                <button type="button" class="action-button tool-btn" data-power="sleep">Sleep</button>
+                <button type="button" class="action-button tool-btn" data-power="displayOff">Screen off</button>
+                <button type="button" class="action-button tool-btn danger" data-power="restart">Restart</button>
+                <button type="button" class="action-button tool-btn danger" data-power="shutdown">Shut down</button>
+                <button type="button" class="action-button tool-btn" data-power="cancel">Cancel</button>
+            </div>
+            <p id="power-status" class="microcopy" role="status" aria-live="polite">Restart and shut down wait 15 seconds, so you can press Cancel.</p>
+
+            <h3 class="tools-heading">On this phone</h3>
+            <label class="tools-row"><span>Pointer speed</span><input id="set-mouse-speed" type="range" min="0.5" max="3" step="0.1" /><output id="out-mouse-speed"></output></label>
+            <label class="tools-row"><span>Scroll speed</span><input id="set-scroll-speed" type="range" min="0.5" max="3" step="0.1" /><output id="out-scroll-speed"></output></label>
+            <label class="tools-check"><input id="set-natural-scroll" type="checkbox" /><span>Natural scrolling (swipe up to scroll down)</span></label>
+            <label class="tools-check"><input id="set-haptics" type="checkbox" /><span>Vibrate on key taps</span></label>
+            <label class="tools-check"><input id="set-wake" type="checkbox" /><span>Keep the screen on while using the touchpad</span></label>
+            <label class="tools-check"><input id="set-restore-page" type="checkbox" /><span>Reopen the last page when the app starts</span></label>
+
+            <h3 class="tools-heading">Typing on the PC</h3>
+            <label class="tools-row"><span>Keys</span>
+              <select id="set-key-method"><option value="sendinput">Standard</option><option value="legacy">Compatibility</option></select></label>
+            <label class="tools-row"><span>Text</span>
+              <select id="set-text-method"><option value="unicode">Type directly</option><option value="paste">Paste (most compatible)</option></select></label>
+            <label class="tools-check"><input id="set-fallback" type="checkbox" /><span>Switch method automatically if one fails</span></label>
+            <button id="run-input-test" class="action-button tool-wide" type="button">Test and fix typing</button>
+            <pre id="input-test-result" class="tools-result hidden"></pre>
+
+            <h3 class="tools-heading">Help</h3>
+            <button id="load-diagnostics" class="action-button tool-wide" type="button">Show diagnostics</button>
+            <pre id="diagnostics-result" class="tools-result hidden"></pre>
+            <button id="unpair-others" class="action-button tool-wide" type="button">Sign out other phones</button>
+          </section>
+        </div>
         <footer>
           <span>Built for the same Wi-Fi network</span
           ><span id="last-updated"></span>
@@ -782,6 +835,17 @@
       </section>
       <div id="toast" role="status" class="toast"></div>
     </main>
-    <script src="/app.js" defer></script>
+    <script src="/js/core.js" defer></script>
+    <script src="/js/paint.js" defer></script>
+    <script src="/js/session.js" defer></script>
+    <script src="/js/keyboard.js" defer></script>
+    <script src="/js/mouse.js" defer></script>
+    <script src="/js/playback.js" defer></script>
+    <script src="/js/files.js" defer></script>
+    <script src="/js/apps.js" defer></script>
+    <script src="/js/browser.js" defer></script>
+    <script src="/js/tools.js" defer></script>
+    <script src="/js/ui.js" defer></script>
+    <script src="/js/main.js" defer></script>
   </body>
 </html>
