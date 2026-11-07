@@ -13,6 +13,12 @@ function Get-PlayerProcesses([string]$name) {
     default { @($name) }
   }
 }
+function Test-PlayerRunning([string]$name) {
+  foreach($procName in (Get-PlayerProcesses $name)) {
+    if(Get-Process -Name $procName -ErrorAction SilentlyContinue | Select-Object -First 1) { return $true }
+  }
+  return $false
+}
 function Get-PlayerExecutable([string]$name) {
   foreach($procName in (Get-PlayerProcesses $name)) {
     $proc = Get-Process -Name $procName -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -121,7 +127,12 @@ function Get-MpcVolume {
   if($html -and $html -match 'id="volumelevel">\s*(\d+)\s*<'){ $level=[int]$Matches[1]; return @{volume=$level;muted=($html -match 'id="muted">\s*1\s*<')} }
   return $null
 }
-function Set-MpcVolume([int]$percent) { return ($null -ne (Invoke-MpcWeb "/command.html?wm_command=-2&volume=$percent")) }
+function Set-MpcVolume([int]$percent) {
+  $null=Invoke-MpcWeb "/command.html?wm_command=-2&volume=$percent"
+  Start-Sleep -Milliseconds 100
+  $actual=Get-MpcVolume
+  return ($actual -and $actual.volume -eq $percent)
+}
 # Volume keys of each player, used when only relative steps are possible. what = up | down | mute
 function Send-PlayerVolumeKey([string]$name,[string]$what) {
   if($name -like 'mpc-hc*') {
@@ -140,6 +151,33 @@ function Send-PlayerVolumeKey([string]$name,[string]$what) {
   if(-not [WinAudio]::ActivatePlayer($name)){throw 'Could not focus the selected player window.'}
   Start-Sleep -Milliseconds 80
   $k=$keys[$what]; [WinAudio]::Tap([byte]$k[0],[bool]$k[1],$false,[bool]$k[2])
+}
+
+function Send-PlayerTransport([string]$name,[string]$action) {
+  if(!$name){throw 'Choose a player first.'}
+  if($action -eq 'playPause' -and -not (Test-PlayerRunning $name)) {
+    Start-Process -FilePath (Get-PlayerExecutable $name) | Out-Null
+    for($attempt=0;$attempt -lt 100;$attempt++) {
+      if([WinAudio]::ActivatePlayer($name)){Start-Sleep -Milliseconds 80;[WinAudio]::Tap(0x20);return}
+      Start-Sleep -Milliseconds 100
+    }
+    throw "Could not open $name to start playback."
+  }
+  if($name -eq 'musicbee' -and $action -in @('next','previous')) {
+    $command=if($action -eq 'next'){11}else{12}
+    if(-not [WinAudio]::PostPlayerAppCommand($name,$command)){throw 'Could not send track navigation to MusicBee.'}
+    return
+  }
+  if(-not [WinAudio]::ActivatePlayer($name)){throw 'Could not focus the selected player window.'}
+  Start-Sleep -Milliseconds 80
+  if($action -in @('playPause','play','pause')) { [WinAudio]::Tap(0x20); return }
+  switch -Regex ($name) {
+    '^vlc$' { $key=if($action -eq 'next'){0x4E}else{0x50}; [WinAudio]::Tap([byte]$key); return }
+    '^musicbee$' { $key=if($action -eq 'next'){0x27}else{0x25}; [WinAudio]::Tap([byte]$key,$true); return }
+    '^mpc-hc' { $key=if($action -eq 'next'){0x22}else{0x21}; [WinAudio]::Tap([byte]$key); return }
+    '^potplayer' { $key=if($action -eq 'next'){0x22}else{0x21}; [WinAudio]::Tap([byte]$key); return }
+    default { throw 'Track controls are not configured for this player.' }
+  }
 }
 
 function Send-PlayerSeek([string]$name,[int]$key,[int]$repeat) {

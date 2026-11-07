@@ -39,6 +39,9 @@ async function pair(s) { await sleep(1300); s.token = (await s.raw("/api/pair", 
   ok(JSON.parse(rd("calls.log").filter(c => c.startsWith("control") && c.includes("playerVolumeStep")).pop().replace(/^control /, "")).direction === "down", "volume step passes its direction");
   await s.ctl({ action: "playerVolumeStep", player: "musicbee", direction: "sideways" });
   ok(JSON.parse(rd("calls.log").filter(c => c.includes("playerVolumeStep")).pop().replace(/^control /, "")).direction === "up", "invalid direction becomes 'up'");
+  r = await s.ctl({ action: "playPause", player: "vlc" });
+  ok(r.status === 200 && JSON.parse(rd("calls.log").filter(c => c.includes("playPause")).pop().replace(/^control /, "")).player === "vlc", "play/pause forwards the selected player to Windows");
+  r = await s.ctl({ action: "playPause" }); ok(r.status === 400, "play/pause requires an explicitly selected player");
   r = await s.ctl({ action: "power", what: "lock" }); ok(r.status === 200, "power: lock accepted");
   ok(JSON.parse(rd("calls.log").filter(c => c.includes('"what":"lock"')).pop().replace(/^control /, "")).what === "lock", "power action reaches Windows");
   r = await s.ctl({ action: "power", what: "format" }); ok(r.status === 400, "power: unknown action rejected");

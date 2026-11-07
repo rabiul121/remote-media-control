@@ -27,12 +27,20 @@ Ok ($s.PSObject.Properties.Name -contains 'browsers' -and $s.PSObject.Properties
 $s2 = (Act 'state' @{ detectBrowsers = $false }) | ConvertFrom-Json; Ok ($null -eq $s2.browsers) "state: browser probe skipped when not asked"
 Ok (($s.running -contains 'musicbee') -and ($s.running -contains 'mpc-hc64')) "state: finds the running players (MusicBee, MPC-HC): $($s.running -join ',')"
 $mb = $s.players | Where-Object name -eq 'musicbee'
-Ok ($mb.mode -eq 'keys' -and $null -eq $mb.volume) "MusicBee has no Windows audio session -> mode keys, level unknown"
+Ok ($mb.mode -eq 'keys' -and $null -eq $mb.volume) "MusicBee without a Windows session reports no slider level"
+$p = New-Object PlayerAudio; $p.name = 'mpc-hc64'; $p.process = 'mpc-hc64'; $p.volume = 0.2; $p.muted = $false; [MockState]::Players.Add($p)
+$s = (Act 'state' @{ detectBrowsers = $false }) | ConvertFrom-Json; $mp = $s.players | Where-Object name -eq 'mpc-hc64'
+Ok ($mp.mode -eq 'web' -and $mp.volume -eq 60) "MPC-HC web volume overrides its mixer session"
+$mb = $s.players | Where-Object name -eq 'musicbee'
 $mp = $s.players | Where-Object name -eq 'mpc-hc64'
 Ok ($mp.mode -eq 'web' -and $mp.volume -eq 60 -and $mp.muted -eq $false) "MPC-HC web interface reachable -> mode web, level 60 read from it"
+New-Item -ItemType File -Path "$work/mpc-web-disabled" | Out-Null
+$s = (Act 'state' @{ detectBrowsers = $false }) | ConvertFrom-Json; $mp = $s.players | Where-Object name -eq 'mpc-hc64'
+Ok ($mp.mode -eq 'mixer' -and $mp.volume -eq 20) "without MPC-HC Web Interface, its per-app mixer session supplies the slider level"
+Remove-Item "$work/mpc-web-disabled"
 $p = New-Object PlayerAudio; $p.name = 'musicbee'; $p.process = 'musicbee'; $p.volume = 0.4; $p.muted = $false; [MockState]::Players.Add($p)
 $s = (Act 'state' @{ detectBrowsers = $false }) | ConvertFrom-Json; $mb = $s.players | Where-Object name -eq 'musicbee'
-Ok ($mb.mode -eq 'mixer' -and $mb.volume -eq 40) "with a Windows session: mode mixer, level 40"
+Ok ($mb.mode -eq 'mixer' -and $mb.volume -eq 40) "MusicBee session supplies its absolute slider level"
 Ok (@($s.players | Where-Object name -eq 'musicbee').Count -eq 1) "no duplicate entry for a player with a session"
 [MockState]::ForegroundElevated = $true
 $s = (Act 'state' @{}) | ConvertFrom-Json; Ok ($s.foregroundElevated -eq $true) "state reports an elevated app in front"
@@ -40,12 +48,20 @@ $s = (Act 'state' @{}) | ConvertFrom-Json; Ok ($s.foregroundElevated -eq $true) 
 
 # ---------------- player volume ----------------
 Remove-Item "$work/mpc.log" -ErrorAction SilentlyContinue
-[void](Ctl @{ action = 'playerVolume'; player = 'musicbee'; value = 55 }); Ok ((Calls) -match 'SetPlayerVol musicbee 55') "volume: sets the Windows session when there is one"
+[void](Ctl @{ action = 'playerVolume'; player = 'musicbee'; value = 55 }); Ok ((Calls) -match 'SetPlayerVol musicbee 55') "volume: MusicBee slider sets its Windows app session"
 [MockState]::Players.Clear()
 $e = Err { Ctl @{ action = 'playerVolume'; player = 'musicbee'; value = 50 } }
-Ok ($e -match 'exclusive or ASIO' -and $e -match '- and \+') "volume: MusicBee without a session -> clear message pointing to the +/- buttons"
+Ok ($e -match 'no per-app audio session') "volume: MusicBee without a session reports why slider cannot act"
 [void](Ctl @{ action = 'playerVolume'; player = 'mpc-hc64'; value = 50 }); Start-Sleep -Milliseconds 200
 Ok ((Get-Content "$work/mpc.log" -ErrorAction SilentlyContinue) -contains '/command.html?wm_command=-2&volume=50') "volume: MPC-HC without a session -> set through its web interface (volume=50)"
+$p = New-Object PlayerAudio; $p.name = 'mpc-hc64'; $p.process = 'mpc-hc64'; $p.volume = 0.2; $p.muted = $false; [MockState]::Players.Add($p)
+[MockState]::Calls.Clear(); New-Item -ItemType File -Path "$work/mpc-web-disabled" | Out-Null
+$e = Err { Ctl @{ action = 'playerVolume'; player = 'mpc-hc64'; value = 50 } }
+Ok ($e -match 'no per-app audio session' -and (Calls) -notmatch 'SetPlayerVol') "volume: without MPC web or session, slider reports unavailable"
+Remove-Item "$work/mpc-web-disabled"
+[MockState]::Calls.Clear(); [void](Ctl @{ action = 'playerVolume'; player = 'mpc-hc64'; value = 50 }); Ok ((Calls) -match 'SetPlayerVol mpc-hc64 50') "volume: without MPC web, slider sets the app session"
+[MockState]::Calls.Clear(); [void](Ctl @{ action = 'playerVolume'; player = 'mpc-hc64'; value = 50 }); Start-Sleep -Milliseconds 200
+Ok ((Get-Content "$work/mpc.log" -ErrorAction SilentlyContinue) -contains '/command.html?wm_command=-2&volume=50' -and (Calls) -match 'SetPlayerVol mpc-hc64 100') "volume: MPC-HC web interface controls its internal level and keeps mixer gain neutral"
 Ok ((Err { Ctl @{ action = 'playerVolume'; player = ''; value = 50 } }) -eq 'Choose a player first.') "volume: no player chosen"
 
 # ---------------- volume steps ----------------
@@ -55,9 +71,22 @@ Ok ((Err { Ctl @{ action = 'playerVolume'; player = ''; value = 50 } }) -eq 'Cho
 [void](Ctl @{ action = 'playerVolumeStep'; player = 'mpc-hc64'; direction = 'down' }); Ok ((Calls) -eq 'Post mpc-hc64 908') "step: MPC-HC down = 908"
 [void](Ctl @{ action = 'playerVolumeStep'; player = 'vlc'; direction = 'down' }); Ok ((Calls) -eq 'ActivatePlayer vlc|Tap 40 ctrl') "step: VLC down = Ctrl+Down"
 Ok ((Err { Ctl @{ action = 'playerVolumeStep'; player = 'wmplayer'; direction = 'up' } }) -match 'no volume keys') "step: unknown player -> honest message"
-[void](Ctl @{ action = 'playerMute'; player = 'mpc-hc64' }); Ok ((Calls) -eq 'Post mpc-hc64 909') "mute: no session -> player's own mute (909)"
+[void](Ctl @{ action = 'playerMute'; player = 'mpc-hc64' }); Ok ((Calls) -eq 'Post mpc-hc64 909') "mute: MPC-HC uses its own mute command when web is unavailable"
 $p = New-Object PlayerAudio; $p.name = 'vlc'; $p.process = 'vlc'; $p.volume = 0.3; $p.muted = $false; [MockState]::Players.Add($p)
 [void](Ctl @{ action = 'playerMute'; player = 'vlc' }); Ok ((Calls) -eq 'SetPlayerMute vlc True') "mute: with a session -> toggles it"
+
+# ---------------- selected-player transport ----------------
+[void](Ctl @{ action = 'playPause'; player = 'vlc' }); Ok ((Calls) -eq 'ActivatePlayer vlc|Tap 32') "play/pause targets the selected VLC window, not the global media session"
+[MockState]::Calls.Clear()
+function Test-PlayerRunning([string]$name) { return $false }
+function Get-PlayerExecutable([string]$name) { return 'MusicBee.exe' }
+$script:started = @()
+[void](Ctl @{ action = 'playPause'; player = 'musicbee' })
+Ok ($script:started -contains 'MusicBee.exe ' -and (Calls) -eq 'ActivatePlayer musicbee|Tap 32') "play/pause opens closed MusicBee before sending play"
+Remove-Item Function:\Test-PlayerRunning,Function:\Get-PlayerExecutable
+[void](Ctl @{ action = 'next'; player = 'musicbee' }); Ok ((Calls) -eq 'AppCommand musicbee 11') "next sends APPCOMMAND_MEDIA_NEXTTRACK directly to MusicBee"
+[void](Ctl @{ action = 'previous'; player = 'musicbee' }); Ok ((Calls) -eq 'AppCommand musicbee 12') "previous sends APPCOMMAND_MEDIA_PREVIOUSTRACK directly to MusicBee"
+[void](Ctl @{ action = 'previous'; player = 'mpc-hc64' }); Ok ((Calls) -eq 'ActivatePlayer mpc-hc64|Tap 33') "previous targets MPC-HC with its track shortcut"
 
 # ---------------- seeking must not restore a maximized window ----------------
 [void](Ctl @{ action = 'seekForward'; player = 'musicbee' }); Ok ((Calls) -match 'ActivatePlayer musicbee') "seek: focuses the player via ActivatePlayer (which only restores minimized windows)"

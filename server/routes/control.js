@@ -73,7 +73,7 @@ module.exports = [
       }
 
       const player = players.includes(String(body.player || "").toLowerCase()) ? String(body.player).toLowerCase() : "";
-      if (["openPlayer", "closePlayer", "openFile"].includes(action) && !player) return bad(res, "Choose a player first.");
+      if (["openPlayer", "closePlayer", "openFile", "playerVolume", "playerVolumeStep", "playerMute", "playPause", "play", "pause", "next", "previous", "seekForward", "seekBackward", "seekSmallForward", "seekSmallBackward", "seekLargeForward", "seekLargeBackward"].includes(action) && !player) return bad(res, "Choose a player first.");
       if (action === "power" && !POWER.includes(body.what)) return bad(res, "Unknown power action.");
       const browser = browsers.includes(String(body.browser || "").toLowerCase()) ? String(body.browser).toLowerCase() : "default";
       const result = await ps("control", {

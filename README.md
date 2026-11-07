@@ -35,7 +35,7 @@ The APK is written to `android\app\build\outputs\apk\debug\app-debug.apk`. Andro
 
 - Play/pause, previous/next, 5-second and 30-second seeks, player volume and mute, and Windows system volume.
 - Volume step buttons adjust by 5 points.
-- **Player volume works three ways**, chosen automatically for each player: through Windows' per-app volume (all active audio outputs are searched, not only the default one); through MPC-HC's web interface when it is switched on (exact level, read back); or, when Windows cannot see the player's own volume (typical with exclusive/WASAPI-exclusive or ASIO output), with − / + buttons that press the player's volume keys: MPC-HC by message (no focus needed), MusicBee Ctrl+Alt+↑/↓ (its default hotkeys), VLC Ctrl+↑/↓, PotPlayer ↑/↓.
+- **Player volume has an absolute slider.** MusicBee uses its Windows per-app audio session. K-Lite/MPC-HC uses its Web Interface for the player's own level and readout when enabled (*Options → Player → Web Interface → Listen on port 13579*); otherwise it uses the Windows per-app session. The slider is unavailable when Windows has no audio session for that player, such as exclusive/ASIO output without the MPC-HC web interface. Other players use Windows' per-app volume across all active audio outputs.
 - Supported players: VLC, MusicBee, PotPlayer, K-Lite Codec Pack (MPC-HC), and Windows Media Player. Open/close player and fullscreen controls are available where supported.
 - For an exact MPC-HC / K-Lite level, enable *Options → Player → Web Interface → Listen on port 13579* once. The 30-second seek repeats the player’s short-jump shortcut six times; configure that shortcut as 5 seconds in the player for an exact 30-second jump.
 

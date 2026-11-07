@@ -46,10 +46,16 @@ if ($Action -eq 'state') {
   $sessionPlayers = @([AudioControl]::GetPlayers() | ForEach-Object { [pscustomobject]@{name=$_.name;volume=[math]::Round($_.volume*100);muted=$_.muted;mode='mixer'} })
   $active = @($sessionPlayers)
   foreach($runName in $running) {
+    if($runName -eq 'mpc-hc64') {
+      $web = Get-MpcVolume
+      if($web) {
+        $active = @($active | Where-Object { $_.name -ne $runName })
+        $active += [pscustomobject]@{name=$runName;volume=$web.volume;muted=$web.muted;mode='web'}
+        continue
+      }
+    }
     if(@($sessionPlayers | Where-Object { $_.name -eq $runName }).Count -gt 0) { continue }
-    $web = if($runName -eq 'mpc-hc64') { Get-MpcVolume } else { $null }
-    if($web) { $active += [pscustomobject]@{name=$runName;volume=$web.volume;muted=$web.muted;mode='web'} }
-    else { $active += [pscustomobject]@{name=$runName;volume=$null;muted=$null;mode='keys'} }
+    $active += [pscustomobject]@{name=$runName;volume=$null;muted=$null;mode='keys'}
   }
   $foreground=Get-CurrentWindow
   $foregroundPid=[WinAudio]::WindowProcessId([long]$foreground.handle)
@@ -138,15 +144,15 @@ if ($Action -eq 'control') {
       [WinAudio]::SendWindowKey($handle,0x7A)
     }
     'browserClose' {if(-not [WinAudio]::CloseWindow([long]$payload.targetWindow)){throw 'Open a browser from the Browser tab first.'}}
-    'playPause' { [WinAudio]::Key(0xB3) }
-    'play' { [WinAudio]::Key(0xB3) }
-    'pause' { [WinAudio]::Key(0xB3) }
-    'next' { [WinAudio]::Key(0xB0) }
-    'previous' { [WinAudio]::Key(0xB1) }
+    { $_ -in @('playPause','play','pause','next','previous') } { Send-PlayerTransport $player $a }
     'seekSmallForward' { Send-PlayerSeek $player 0x27 1 }
     'seekSmallBackward' { Send-PlayerSeek $player 0x25 1 }
     'seekLargeForward' { Send-PlayerSeek $player 0x27 6 }
     'seekLargeBackward' { Send-PlayerSeek $player 0x25 6 }
+    'activatePlayer' {
+      if(!$player){throw 'Choose a player first.'}
+      if(-not [WinAudio]::ActivatePlayer($player)){throw 'Could not focus the selected player window.'}
+    }
     'toggleFullscreen' {
       if(!$player){throw 'Choose a player first.'}
       if(-not [WinAudio]::ActivatePlayer($player)){throw 'Could not focus the selected player window.'}
@@ -232,9 +238,14 @@ if ($Action -eq 'control') {
     'systemMute' { [AudioControl]::ToggleSystemMute() }
     'playerVolume' {
       if(!$player){throw 'Choose a player first.'}
-      if([AudioControl]::SetPlayer($player,[Nullable[single]]([single]$value),$null)) { }
-      elseif($player -eq 'mpc-hc64' -and (Set-MpcVolume ([int][math]::Round($value*100)))) { }
-      else { throw "Windows cannot see this player's volume (it probably uses exclusive or ASIO output). Use the - and + buttons instead." }
+      if($player -eq 'mpc-hc64') {
+        if(Get-MpcVolume) {
+          if(-not (Set-MpcVolume ([int][math]::Round($value*100)))) { throw 'MPC-HC did not confirm the requested volume. Check its Web Interface on port 13579.' }
+          [AudioControl]::SetPlayer($player,[Nullable[single]]1.0,$null) | Out-Null
+          return
+        }
+      }
+      if(-not [AudioControl]::SetPlayer($player,[Nullable[single]]([single]$value),$null)) { throw "Windows has no per-app audio session for $player. Start playback in shared audio mode to use its volume slider." }
     }
     'playerVolumeStep' { if(!$player){throw 'Choose a player first.'}; Send-PlayerVolumeKey $player ([string]$payload.direction) }
     'power' {
@@ -250,6 +261,7 @@ if ($Action -eq 'control') {
     }
     'playerMute' {
       if(!$player){throw 'Choose a player first.'}
+      if($player -eq 'mpc-hc64' -and -not (Get-MpcVolume)) { Send-PlayerVolumeKey $player 'mute'; return }
       $all=@([AudioControl]::GetPlayers() | Where-Object { $_.name -eq $player })
       if($all.Count -gt 0) { $mute = -not [bool]$all[0].muted; [AudioControl]::SetPlayer($player,$null,[Nullable[bool]]$mute) | Out-Null }
       else { Send-PlayerVolumeKey $player 'mute' }

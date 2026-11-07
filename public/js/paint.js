@@ -58,7 +58,7 @@ function paintSystemVolume(s) {
 function paintPlayer(s) {
   const found = (s.players || []).find((p) => p.name === selected);
   const hasLevel = !!found && found.volume != null;
-  const keysOnly = !!found && !hasLevel;
+  const keysOnly = !!found && !hasLevel && !["musicbee", "mpc-hc64"].includes(selected);
   const label = selected ? formatPlayer(selected) : "player";
   const isRunning = (s.running || []).includes(selected);
   const range = $("#player-volume");
@@ -68,6 +68,10 @@ function paintPlayer(s) {
   $("#player-volume-note").textContent = !selected ? ""
     : !isRunning ? `Open ${label} to control its volume.`
     : found?.mode === "web" ? "Controlled through the player's web interface."
+    : found?.mode === "mixer" && selected === "mpc-hc64" ? "Windows app output level. Enable MPC-HC Web Interface on port 13579 to control its internal volume instead."
+    : found?.mode === "mixer" && selected === "musicbee" ? "Windows app output level for MusicBee."
+    : !hasLevel && selected === "mpc-hc64" ? "Start playback to expose its Windows audio session, or enable MPC-HC Web Interface on port 13579 for its internal volume."
+    : !hasLevel && selected === "musicbee" ? "Start playback in shared audio mode to expose MusicBee's Windows audio session."
     : keysOnly ? `Windows can't read ${label}'s own volume (it probably uses exclusive or ASIO output), so these buttons press its volume keys.` : "";
   range.disabled = !hasLevel;
   if (hasLevel) {
@@ -117,6 +121,7 @@ function paintKeyboardTarget(s) {
     : s.foregroundTitle ? `${proc || "app"}: ${s.foregroundTitle}` : "No window in front";
   $("#keyboard-target").classList.toggle("warn", blocked || !s.foregroundTitle || SHELL_PROCESSES.test(proc));
   const hint = $("#keyboard-hint");
-  if (blocked) showKeyboardHint("Windows blocks typing into apps that run as administrator. Close that app and reopen it normally, or start RemoteDeck as administrator.", "elevation");
+  if (blocked && proc.toLowerCase() === "taskmgr") showKeyboardHint("Task Manager is open. Windows may restrict keyboard control unless RemoteDeck is also run as administrator.", "elevation");
+  else if (blocked) showKeyboardHint("Windows blocks typing into apps that run as administrator. Close that app and reopen it normally, or start RemoteDeck as administrator.", "elevation");
   else if (hint.dataset.kind === "elevation") showKeyboardHint("");
 }

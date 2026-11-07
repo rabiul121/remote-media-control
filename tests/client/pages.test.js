@@ -14,17 +14,18 @@ const APPS = [
   { id: "a1", name: "Calculator" }, { id: "a2", name: "Camera" }, { id: "a3", name: "Notepad++" },
   { id: "a4", name: "Édge Browser" }, { id: "a5", name: "7-Zip File Manager" }, { id: "a6", name: "Windows Calculator Plus" },
 ];
-async function boot({ token = "tok", appsFail = false } = {}) {
+async function boot({ token = "tok", appsFail = false, player = "", statePlayers = [], running = [] } = {}) {
   const dom = new JSDOM(fs.readFileSync(root + "index.html", "utf8"), { url: "http://localhost:8765/", runScripts: "outside-only", pretendToBeVisual: true });
   const w = dom.window; const reqs = [];
   if (token) w.localStorage.setItem("remote-media-token", token);
+  if (player) w.localStorage.setItem("remote-media-player", player);
   w.matchMedia = () => ({ matches: false, addListener() {}, addEventListener() {} });
   w.fetch = async (url, opt = {}) => {
     reqs.push({ url, method: opt.method || "GET", body: opt.body ? JSON.parse(opt.body) : null, auth: opt.headers?.Authorization });
     const res = (status, data) => ({ ok: status < 400, status, json: async () => data });
     if (url === "/api/pair") return res(JSON.parse(opt.body).pin === "123456" ? 200 : 401, JSON.parse(opt.body).pin === "123456" ? { token: "newtok" } : { error: "That code did not match." });
     if (url.startsWith("/api/apps")) return appsFail ? res(500, { error: "Windows did not respond in time." }) : res(200, { apps: APPS });
-    if (url.startsWith("/api/state")) return token === "expired" ? res(401, { error: "Pair this device first." }) : res(200, { systemVolume: 30, players: [], running: [], browsers: ["default"] });
+    if (url.startsWith("/api/state")) return token === "expired" ? res(401, { error: "Pair this device first." }) : res(200, { systemVolume: 30, players: statePlayers, running, browsers: ["default"] });
     if (url.startsWith("/api/files")) return res(200, { path: "", parent: "", drives: [{ name: "C", path: "C:\\", kind: "drive" }], folders: [], files: [] });
     if (url === "/api/control") return res(200, { ok: true });
     return res(404, { error: "nf" });
@@ -116,5 +117,12 @@ const $ = (d, s) => d.querySelector(s);
   // ---------- expired session ----------
   ({ w, d, reqs } = await boot({ token: "expired" })); await sleep(60);
   ok(!$(d, "#pair-view").classList.contains("hidden") && !w.localStorage.getItem("remote-media-token"), "401 returns to the pair screen and clears the token");
+  ({ d } = await boot({ player: "musicbee", statePlayers: [{ name: "musicbee", volume: null, mode: "keys" }], running: ["musicbee"] }));
+  ok(!$(d, "#player-slider-row").classList.contains("hidden") && $(d, "#player-keys-row").classList.contains("hidden") && $(d, "#player-volume").disabled, "MusicBee keeps the slider visible but disables it without an audio session");
+  ok(/shared audio mode/.test($(d, "#player-volume-note").textContent), "MusicBee explains how to expose its audio session");
+  ({ d } = await boot({ player: "mpc-hc64", statePlayers: [{ name: "mpc-hc64", volume: null, mode: "keys" }], running: ["mpc-hc64"] }));
+  ok(!$(d, "#player-slider-row").classList.contains("hidden") && $(d, "#player-volume").disabled && /enable MPC-HC Web Interface/i.test($(d, "#player-volume-note").textContent), "K-Lite keeps slider visible and explains available absolute volume sources");
+  ({ d } = await boot({ player: "mpc-hc64", statePlayers: [{ name: "mpc-hc64", volume: 64, mode: "web" }], running: ["mpc-hc64"] }));
+  ok(!$(d, "#player-slider-row").classList.contains("hidden") && $(d, "#player-value").value === "64", "K-Lite with web volume shows its confirmed internal level on the slider");
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
 })().catch(e => { console.error("TEST ERROR", e); process.exit(2); });

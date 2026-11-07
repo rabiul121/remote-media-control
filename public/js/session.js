@@ -40,7 +40,7 @@ async function command(action, value) {
         ...(value && typeof value === "object" ? value : { value }),
       }),
     });
-    if (action === "systemVolume" || action === "playerVolume" || action.startsWith("explorer")) await refresh();
+    if (action === "systemVolume" || action === "playerVolume" || action === "playerVolumeStep" || action.startsWith("explorer")) await refresh();
   } catch (e) {
     notify(e.message);
     // A rejected key is easy to miss in a toast, so say what to do where the typing happens.

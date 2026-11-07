@@ -41,11 +41,8 @@ async function boot({ state = {}, prefs = null, page = null, store = {}, nav = {
   // ---------- player volume modes ----------
   let t = await boot({ store: { "remote-media-player": "musicbee" }, state: { running: ["musicbee"], players: [{ name: "musicbee", volume: null, muted: null, mode: "keys" }] } });
   await t.go("playback"); const d = t.d;
-  ok(!d.querySelector("#player-keys-row").classList.contains("hidden") && d.querySelector("#player-slider-row").classList.contains("hidden"), "level unreadable -> shows - / + buttons instead of a dead slider");
-  ok(/exclusive or ASIO/.test(d.querySelector("#player-volume-note").textContent) && d.querySelector("#player-volume").disabled, "explains why: " + d.querySelector("#player-volume-note").textContent.slice(0, 60) + "…");
-  t.reqs.length = 0; d.querySelector('[data-player-step="up"]').click(); await sleep(30);
-  ok(t.ctl()[0]?.action === "playerVolumeStep" && t.ctl()[0].direction === "up" && t.ctl()[0].player === "musicbee", "+ sends playerVolumeStep up for MusicBee");
-  d.querySelector('[data-player-step="down"]').click(); await sleep(30); ok(t.ctl().at(-1).direction === "down", "− sends down");
+  ok(d.querySelector("#player-keys-row").classList.contains("hidden") && !d.querySelector("#player-slider-row").classList.contains("hidden"), "MusicBee keeps the absolute slider visible");
+  ok(/shared audio mode/.test(d.querySelector("#player-volume-note").textContent) && d.querySelector("#player-volume").disabled, "explains why: " + d.querySelector("#player-volume-note").textContent.slice(0, 60) + "…");
   t = await boot({ store: { "remote-media-player": "vlc" }, state: { running: ["vlc"], players: [{ name: "vlc", volume: 35, muted: false, mode: "mixer" }] } }); await t.go("playback");
   ok(t.d.querySelector("#player-keys-row").classList.contains("hidden") && !t.d.querySelector("#player-slider-row").classList.contains("hidden") && t.d.querySelector("#player-value").value === "35" && !t.d.querySelector("#player-volume").disabled && t.d.querySelector("#player-volume-note").textContent === "", "mixer mode: normal slider at 35, no note");
   t = await boot({ store: { "remote-media-player": "mpc-hc64" }, state: { running: ["mpc-hc64"], players: [{ name: "mpc-hc64", volume: 60, muted: false, mode: "web" }] } }); await t.go("playback");

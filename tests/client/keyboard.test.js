@@ -131,6 +131,8 @@ const presses = s => s.filter(x => x.action === "keyboardPress");
   ok(!!t.d.querySelector('.browser-controls [data-action="browserAddressBar"]') && !!t.d.querySelector('.browser-controls [data-action="browserFocus"]'), "Browser page has 'Bring to front' and 'Address bar'");
   t = await boot({ foregroundTitle: "Windows PowerShell", foregroundProcess: "powershell" });
   ok(t.d.querySelector("#keyboard-target").classList.contains("warn"), "warning colour when keys would go to a terminal/console");
+  t = await boot({ foregroundTitle: "Task Manager", foregroundProcess: "taskmgr", foregroundElevated: true });
+  ok(t.d.querySelector("#keyboard-hint").textContent.startsWith("Task Manager is open."), "Task Manager gets a specific keyboard restriction notice");
   t = await boot({ foregroundTitle: "", foregroundProcess: "", browserReady: false });
   ok(t.d.querySelector("#keyboard-target-title").textContent === "No window in front" && t.d.querySelector("#keyboard-focus-browser").disabled, "no window in front is stated, Browser button disabled when no browser exists");
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

@@ -85,7 +85,7 @@ public static class WinAudio {
   public static bool ActivatePlayer(string name) {
     string[] names=name=="mpc-hc64"?new string[]{"mpc-hc","mpc-hc64"}:name=="potplayer"?new string[]{"PotPlayerMini64","PotPlayerMini","PotPlayer"}:new string[]{name};
     foreach(var item in names) foreach(var p in System.Diagnostics.Process.GetProcessesByName(item)) {
-      try { if(p.MainWindowHandle != IntPtr.Zero) { ActivateWindow(p.MainWindowHandle.ToInt64()); return true; } } catch {}
+      try { if(p.MainWindowHandle != IntPtr.Zero && ActivateWindow(p.MainWindowHandle.ToInt64())) return true; } catch {}
     }
     return false;
   }
@@ -94,6 +94,13 @@ public static class WinAudio {
     string[] names=name=="mpc-hc64"?new string[]{"mpc-hc64","mpc-hc"}:new string[]{name};
     foreach(var item in names) foreach(var p in System.Diagnostics.Process.GetProcessesByName(item)) {
       try { if(p.MainWindowHandle != IntPtr.Zero) return PostMessage(p.MainWindowHandle,0x0111,new IntPtr(command),IntPtr.Zero); } catch {}
+    }
+    return false;
+  }
+  public static bool PostPlayerAppCommand(string name,int command) {
+    string[] names=name=="mpc-hc64"?new string[]{"mpc-hc64","mpc-hc"}:name=="potplayer"?new string[]{"PotPlayerMini64","PotPlayerMini","PotPlayer"}:new string[]{name};
+    foreach(var item in names) foreach(var p in System.Diagnostics.Process.GetProcessesByName(item)) {
+      try { if(p.MainWindowHandle != IntPtr.Zero) return PostMessage(p.MainWindowHandle,0x0319,p.MainWindowHandle,new IntPtr(command<<16)); } catch {}
     }
     return false;
   }

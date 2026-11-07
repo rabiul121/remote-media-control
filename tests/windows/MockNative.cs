@@ -23,6 +23,7 @@ public class WinAudio {
   public static bool SendBrowserKey(long h, byte key, bool ctrl = false, bool shift = false, bool alt = false) { MockState.Log("BrowserKey " + key + (ctrl ? " ctrl" : "")); return true; }
   public static bool ActivatePlayer(string name) { MockState.Log("ActivatePlayer " + name); return true; }
   public static bool PostPlayerCommand(string name, int c) { MockState.Log("Post " + name + " " + c); return true; }
+  public static bool PostPlayerAppCommand(string name, int c) { MockState.Log("AppCommand " + name + " " + c); return true; }
   public static bool IsProcessElevated(uint pid) { return MockState.ForegroundElevated && pid == MockState.ForegroundPid; }
   public static bool SelfElevated() { return MockState.Self; }
   public static bool Lock() { MockState.Log("Lock"); return true; }
